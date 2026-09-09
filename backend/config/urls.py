@@ -11,5 +11,6 @@ urlpatterns = [
     path("api/auth/login/", LoginView.as_view(), name="auth-login"),
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
     path("api/auth/me/", MeView.as_view(), name="auth-me"),
+    path("api/profiles/", include("apps.profiles.urls")),
+    path("api/skills/", include("apps.skills.urls")),
 ]
-

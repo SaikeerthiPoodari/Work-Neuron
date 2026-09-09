@@ -188,7 +188,7 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 1 — Foundation (complete).**
+**Phase 2 — Profiles and skills (complete).**
 
 Implemented foundation scope:
 
@@ -200,10 +200,25 @@ Implemented foundation scope:
 - JWT role/email claims and CORS configuration.
 - Initial migration, admin registration, project-local `.gitignore`, and setup README.
 - Automated authentication tests.
+- Client and worker profile models linked one-to-one with the existing user model.
+- Authenticated profile read/update endpoint with role-specific serializer fields.
+- Canonical skill catalog and worker-skill relationship with proficiency and experience metadata.
+- Admin-only skill catalog creation/update/deactivation/deletion permissions.
+- Worker-only add/list/remove skill endpoints with duplicate and inactive-skill validation.
+- Profile and skill API tests.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance, then begin **Phase 2 — Profiles and skills**. The next phase must build on the existing user roles rather than duplicate identity data.
+Next: verify/configure a local PostgreSQL instance, then begin **Phase 3 — Task management**. The task module must reference the existing users, profiles, and canonical skills rather than duplicate them.
+
+## Phase 2 completion report
+
+- **Completed features:** client/worker profiles, canonical skills, worker skill metadata, role-based permissions, duplicate prevention, and profile/skill administration.
+- **Files changed:** `backend/apps/profiles/`, `backend/apps/skills/`, `backend/config/settings.py`, `backend/config/urls.py`, generated migrations, `README.md`, and this status document.
+- **Tests performed:** Django system check and automated API/unit tests.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 9 tests.
+- **Known issues:** PostgreSQL service/connectivity is still not available locally, so automated tests use the documented SQLite fallback. Frontend integration is deferred to the frontend refinement phase.
+- **Next recommended phase:** Phase 3 — task CRUD, publishing, search/filtering, and validated task lifecycle.
 
 ## Technical risks
 

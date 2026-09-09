@@ -4,7 +4,7 @@ WorkNeuron is an AI-assisted skill monetization and task fulfillment marketplace
 
 ## Current status
 
-Phase 1 foundation is complete. The backend contains Django/DRF configuration, a custom role-aware user model, JWT register/login/refresh/me endpoints, environment-based settings, and authentication tests. Profiles, tasks, matching, recommendations, payments, and the frontend are intentionally not implemented yet.
+Phase 2 is complete. The backend contains the Django/DRF foundation, a custom role-aware user model, JWT register/login/refresh/me endpoints, client and worker profiles, canonical skills, worker skill metadata, role-based permissions, and automated tests. Tasks, matching, recommendations, payments, and the frontend are intentionally not implemented yet.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
@@ -29,5 +29,10 @@ Authentication endpoints:
 - `POST /api/auth/login/`
 - `POST /api/auth/refresh/`
 - `GET /api/auth/me/` with `Authorization: Bearer <access-token>`
+- `GET/PATCH /api/profiles/me/`
+- `GET /api/skills/`
+- `GET/POST /api/skills/mine/` for workers
+- `DELETE /api/skills/mine/<worker-skill-id>/` for workers
+- `POST/PATCH/DELETE /api/skills/<skill-id>/` for administrators
 
 No secrets belong in Git. Use `backend/.env.example` as the configuration template.

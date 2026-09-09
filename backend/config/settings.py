@@ -3,11 +3,15 @@
 from datetime import timedelta
 from pathlib import Path
 import os
+import sys
 
 from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-development-key-change-me")
@@ -30,6 +34,8 @@ INSTALLED_APPS = [
     "apps.tasks",
     "apps.applications",
     "apps.assignments",
+    "apps.matching",
+    "apps.recommendations",
 ]
 
 MIDDLEWARE = [

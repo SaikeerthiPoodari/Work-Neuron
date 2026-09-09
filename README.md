@@ -4,7 +4,7 @@ WorkNeuron is an AI-assisted skill monetization and task fulfillment marketplace
 
 ## Current status
 
-Phase 4 is complete. The backend contains the Django/DRF foundation, JWT authentication, client and worker profiles, canonical skills, worker skill metadata, task CRUD/search/filtering/lifecycle transitions, worker applications, transactional assignment creation, progress tracking, work submission, completion approval, and automated tests. Matching, recommendations, payments, reviews, notifications, and the frontend are intentionally not implemented yet.
+Phase 5 is complete. The backend contains the Django/DRF foundation, JWT authentication, client and worker profiles, canonical skills, task workflows, applications, assignments, explainable Sentence Transformer matching, structured cosine-similarity scoring, worker recommendations, Smart Task Feed ranking, and automated tests. Reviews, reputation, payments, notifications, and the frontend are intentionally not implemented yet.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
@@ -47,7 +47,16 @@ Authentication endpoints:
 - `PATCH /api/assignments/<assignment-id>/progress/`
 - `POST /api/assignments/<assignment-id>/submit/`
 - `POST /api/assignments/<assignment-id>/complete/`
+- `GET /api/matching/tasks/<task-id>/workers/`
+- `GET /api/recommendations/workers/?task=<task-id>`
+- `GET /api/recommendations/smart-feed/`
 
 Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `skill`, `deadline_before`, and `deadline_after`. Workers receive only open or application-received tasks; clients receive their own tasks.
+
+## AI matching methodology
+
+WorkNeuron uses the Sentence Transformers model configured by `EMBEDDING_MODEL`, defaulting to `sentence-transformers/all-MiniLM-L6-v2`, to encode task and worker text. Scikit-learn cosine similarity produces the semantic component. Structured components cover skill overlap, experience, availability, location, and neutral cold-start rating/reputation values. Components are combined with `MATCHING_WEIGHTS_JSON`, normalized to a 0–100 score, and returned with an explanation. This is an explainable embedding-based scoring system, not a newly trained deep neural network.
+
+If the embedding model cannot be loaded, matching endpoints return `503 Service Unavailable`; the backend does not silently substitute fabricated AI scores.
 
 No secrets belong in Git. Use `backend/.env.example` as the configuration template.

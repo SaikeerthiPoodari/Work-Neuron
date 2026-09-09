@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     "apps.profiles",
     "apps.skills",
     "apps.tasks",
+    "apps.applications",
+    "apps.assignments",
 ]
 
 MIDDLEWARE = [

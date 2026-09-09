@@ -188,7 +188,7 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 3 — Task management (complete).**
+**Phase 4 — Applications and assignments (complete).**
 
 Implemented scope across Phases 1–3:
 
@@ -212,10 +212,16 @@ Implemented scope across Phases 1–3:
 - Search and filtering by text, budget, location, skill, deadline, and administrator status.
 - Validated task transition service and transition API.
 - Task API tests covering creation, authorization, filtering, lifecycle validation, and closed-task visibility.
+- Worker applications with duplicate prevention, self-task prevention, withdrawal, and task status updates.
+- Client/admin application decisions with transactional assignment creation and rejection of competing submissions.
+- Assignment visibility by worker/client/admin role.
+- Worker assignment start, progress updates, and work submission.
+- Client/admin submission approval and completion recording.
+- Assignment-specific authorization and workflow tests.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance, then begin **Phase 4 — Applications and assignments**. Application acceptance will be responsible for creating assignments and will extend the existing task transition rules.
+Next: verify/configure a local PostgreSQL instance, then begin **Phase 5 — AI matching and recommendations**. Matching must use the existing profiles, skills, tasks, applications, assignments, and reputation-ready fields.
 
 ## Phase 2 completion report
 
@@ -233,7 +239,16 @@ Next: verify/configure a local PostgreSQL instance, then begin **Phase 4 — App
 - **Tests performed:** Django system check, migrations, and automated API/unit tests.
 - **Test results:** `python manage.py check` passed; `python manage.py test` passed with 15 tests.
 - **Known issues:** PostgreSQL service/connectivity is still not available locally, so automated tests use the documented SQLite fallback. Assignment-specific actor checks will be completed in Phase 4 when assignments exist.
-- **Next recommended phase:** Phase 4 — applications and assignments.
+  - **Next recommended phase:** Phase 4 — applications and assignments.
+
+## Phase 4 completion report
+
+- **Completed features:** worker applications, transactional client decisions, assignment creation, application withdrawal/rejection, progress tracking, work submission, and client completion approval.
+- **Files changed:** `backend/apps/applications/`, `backend/apps/assignments/`, `backend/config/settings.py`, `backend/config/urls.py`, generated migrations, `README.md`, and this status document.
+- **Tests performed:** Django system check, migrations, and automated API/integration tests.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 21 tests.
+- **Known issues:** PostgreSQL service/connectivity is still not available locally, so automated tests use the documented SQLite fallback. Notifications, payments, reviews, and AI scoring are intentionally deferred to later phases.
+- **Next recommended phase:** Phase 5 — explainable AI matching, recommendations, and Smart Task Feed.
 
 ## Technical risks
 

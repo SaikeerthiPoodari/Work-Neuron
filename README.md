@@ -4,7 +4,7 @@ WorkNeuron is an AI-assisted skill monetization and task fulfillment marketplace
 
 ## Current status
 
-Phase 5 is complete. The backend contains the Django/DRF foundation, JWT authentication, client and worker profiles, canonical skills, task workflows, applications, assignments, explainable Sentence Transformer matching, structured cosine-similarity scoring, worker recommendations, Smart Task Feed ranking, and automated tests. Reviews, reputation, payments, notifications, and the frontend are intentionally not implemented yet.
+Phase 6 is complete. The backend contains the Django/DRF foundation, JWT authentication, profiles, skills, task workflows, applications, assignments, explainable Sentence Transformer matching, recommendations, Smart Task Feed ranking, two-way reviews, reputation scoring, and automated tests. Payments, notifications, and the frontend are intentionally not implemented yet.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
@@ -50,6 +50,9 @@ Authentication endpoints:
 - `GET /api/matching/tasks/<task-id>/workers/`
 - `GET /api/recommendations/workers/?task=<task-id>`
 - `GET /api/recommendations/smart-feed/`
+- `GET/POST /api/reviews/`
+- `GET /api/reputation/me/`
+- `GET /api/reputation/users/<user-id>/`
 
 Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `skill`, `deadline_before`, and `deadline_after`. Workers receive only open or application-received tasks; clients receive their own tasks.
 

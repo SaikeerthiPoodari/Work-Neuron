@@ -36,6 +36,8 @@ INSTALLED_APPS = [
     "apps.assignments",
     "apps.matching",
     "apps.recommendations",
+    "apps.reviews",
+    "apps.reputation",
 ]
 
 MIDDLEWARE = [

@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 5 — AI matching and recommendations (complete).**
+**Phase 6 — Reviews and reputation (complete).**
 
-Implemented scope across Phases 1–5:
+Implemented scope across Phases 1–6:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -224,10 +224,14 @@ Implemented scope across Phases 1–5:
 - Client worker-match endpoint and worker recommendation endpoint.
 - Worker Smart Task Feed with match ranking and skill/location/budget filters.
 - Deterministic embedding-injected tests that do not falsely claim model inference.
+- Client-to-worker and worker-to-client reviews after completed assignments.
+- Duplicate review prevention per assignment and direction.
+- Transparent reputation score records with average rating, completion rate, response rate, complaint health, and score components.
+- Reputation recalculation after each received review and public authenticated reputation lookup.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 6 — Reviews and reputation**. Ratings and transparent reputation inputs will replace the current neutral cold-start rating/reputation components.
+Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 7 — Notifications and WebSockets**. Notifications will be emitted from the existing application, assignment, review, and payment workflows.
 
 ## Phase 2 completion report
 
@@ -264,6 +268,15 @@ Next: verify/configure a local PostgreSQL instance and pre-download the configur
 - **Test results:** `python manage.py check` passed; `python manage.py test` passed with 27 tests.
 - **Known issues:** first real matching use requires downloading the configured Sentence Transformer model. Until the model is available, matching endpoints return HTTP 503 rather than fabricating scores. Rating and reputation components are neutral 50-point cold-start values until Phase 6.
 - **Next recommended phase:** Phase 6 — reviews, ratings, and reputation.
+
+## Phase 6 completion report
+
+- **Completed features:** two-way reviews, completed-assignment validation, duplicate prevention, reputation calculation, reputation API, and reputation updates after reviews.
+- **Files changed:** `backend/apps/reviews/`, `backend/apps/reputation/`, `backend/config/settings.py`, `backend/config/urls.py`, generated migrations, `README.md`, and this status document.
+- **Tests performed:** Django system check, migrations, and automated review/reputation API tests.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 31 tests.
+- **Known issues:** response rate and complaint health are provisional 100-point values until response instrumentation and complaints are implemented. PostgreSQL service/connectivity remains unverified locally.
+- **Next recommended phase:** Phase 7 — notifications, email, Django Channels, and WebSockets.
 
 ## Technical risks
 

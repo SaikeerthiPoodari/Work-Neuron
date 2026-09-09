@@ -18,4 +18,6 @@ urlpatterns = [
     path("api/assignments/", include("apps.assignments.urls")),
     path("api/matching/", include("apps.matching.urls")),
     path("api/recommendations/", include("apps.recommendations.urls")),
+    path("api/reviews/", include("apps.reviews.urls")),
+    path("api/reputation/", include("apps.reputation.urls")),
 ]

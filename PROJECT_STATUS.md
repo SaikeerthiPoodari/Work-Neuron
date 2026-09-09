@@ -1,0 +1,229 @@
+# WorkNeuron Project Status
+
+## Project overview
+
+**WorkNeuron** is planned as an AI-assisted skill monetization and task fulfillment marketplace. It will connect clients who publish work with workers who discover, apply for, and complete suitable tasks. The system will provide role-specific workflows for clients, workers, and administrators, with explainable semantic matching and recommendation features.
+
+This repository is currently at the planning/inspection stage. No application functionality has been implemented yet.
+
+## Current repository status
+
+Inspection date: 2026-09-09
+
+- The workspace directory is empty at the start of this planning phase.
+- No `frontend/`, `backend/`, `ai_engine/`, `tests/`, or `docs/` directories exist.
+- A Django project, DRF configuration, custom user model, initial migration, JWT endpoints, requirements file, environment template, README, and authentication tests now exist.
+- No React/Vite frontend or feature-domain modules exist yet; these remain intentionally deferred to later phases.
+- A project-local Git repository was initialized. Existing unrelated parent-repository files are outside the project boundary.
+- Available development tools detected: Python 3.13.7, Node.js 22.14.0, npm 10.9.2, and Git 2.51.0.
+- Django 5.2.17, DRF 3.16.1, SimpleJWT 5.5.1, django-cors-headers 4.9.0, psycopg 3.3.5, and python-dotenv 1.2.3 are declared/installed for the backend.
+- The PostgreSQL `psql` client and Windows service were not found. PostgreSQL remains the intended application database, but local PostgreSQL connectivity is not yet verified.
+
+## Final architecture
+
+The planned implementation is a modular Django monolith with a React/Vite client:
+
+```text
+React + Vite + JavaScript + Tailwind CSS
+        |
+        | REST/JSON, JWT, WebSockets
+        v
+Django + Django REST Framework + Django Channels
+        |
+        +-- Accounts, profiles, skills, tasks, applications
+        +-- Assignments, matching, recommendations, notifications
+        +-- Payments, reviews, reputation, complaints, fraud, analytics
+        |
+        v
+PostgreSQL
+
+External integrations:
+- Razorpay Test Mode
+- SMTP/email provider
+- Leaflet + OpenStreetMap
+```
+
+The backend will remain a single deployable service. AI matching will be implemented as an internal Python module used by Django services and API endpoints; unnecessary microservices are out of scope.
+
+## Planned folder structure
+
+```text
+WorkNeuron/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── layouts/
+│   │   ├── services/
+│   │   ├── hooks/
+│   │   ├── context/
+│   │   ├── utils/
+│   │   └── assets/
+│   ├── package.json
+│   └── vite.config.js
+├── backend/
+│   ├── manage.py
+│   ├── config/
+│   ├── apps/
+│   │   ├── accounts/
+│   │   ├── profiles/
+│   │   ├── skills/
+│   │   ├── tasks/
+│   │   ├── applications/
+│   │   ├── matching/
+│   │   ├── recommendations/
+│   │   ├── notifications/
+│   │   ├── payments/
+│   │   ├── reviews/
+│   │   ├── reputation/
+│   │   ├── complaints/
+│   │   ├── fraud/
+│   │   └── analytics/
+│   ├── requirements.txt
+│   └── .env.example
+├── ai_engine/
+│   ├── embeddings/
+│   ├── matching/
+│   ├── recommendations/
+│   └── utils/
+├── tests/
+├── docs/
+├── README.md
+├── PROJECT_STATUS.md
+└── .gitignore
+```
+
+The structure may be adjusted slightly during implementation if Django app boundaries or testing conventions require it, without changing the mandated technology stack.
+
+## Database entities
+
+The normalized PostgreSQL model will use UUIDs or suitable primary keys, timestamps, foreign keys, indexes, unique constraints, validation, and explicit deletion behavior.
+
+- `User`: authentication identity, role, account status, and common user fields.
+- `ClientProfile`: client-specific profile data linked one-to-one to `User`.
+- `WorkerProfile`: worker bio, experience, location, availability, and profile metadata linked one-to-one to `User`.
+- `Skill`: canonical skill catalog.
+- `WorkerSkill`: worker-to-skill relationship, including proficiency/experience metadata where justified.
+- `Task`: task owner, content, budget, deadline, location, availability requirements, and lifecycle status.
+- `TaskSkill`: task-to-required-skill relationship.
+- `Application`: worker application to a task, status, message, and match snapshot/score where appropriate.
+- `Assignment`: accepted worker/task relationship, progress, submission, and assignment status.
+- `Transaction`: payment intent/order, verification data, amount, and payment status; Razorpay secrets remain in environment variables.
+- `Review`: reviewer, reviewed user, assignment/task, rating, text, and uniqueness constraint per review direction and assignment.
+- `Notification`: recipient, type, message, read state, and optional related object reference.
+- `Complaint`: complainant, subject user/task/application/assignment/payment, status, investigation notes, and resolution.
+- `ReputationScore`: worker/client aggregates and formula inputs used for recommendations.
+- `FraudAlert`: anomaly type, related entity, score/evidence, status, and admin resolution.
+
+Core integrity rules will include one application per worker/task, one active assignment per task, one review per reviewer/reviewed direction per completed assignment, ownership checks, and valid task state transitions.
+
+## API structure
+
+The planned REST API namespaces are:
+
+```text
+/api/auth/
+/api/users/
+/api/profiles/
+/api/skills/
+/api/tasks/
+/api/applications/
+/api/assignments/
+/api/matching/
+/api/recommendations/
+/api/notifications/
+/api/payments/
+/api/reviews/
+/api/reputation/
+/api/complaints/
+/api/admin/
+/api/analytics/
+```
+
+Each implemented endpoint will have real serializers, validation, authentication, object-level authorization, meaningful HTTP methods/status codes, consistent errors, and pagination/filtering where applicable. Endpoints will not be added merely to make an unfinished UI appear complete.
+
+## Task and application workflows
+
+The task state machine will support:
+
+```text
+OPEN -> APPLICATIONS_RECEIVED -> ASSIGNED -> IN_PROGRESS -> SUBMITTED -> COMPLETED
+  \----------------------------------------------------------------> CANCELLED
+```
+
+The transition service will enforce allowed transitions and actor permissions. In particular, workers may update only their own assignment, clients may approve their own task submission, and administrators may intervene according to explicit policy.
+
+Applications will enforce that a worker cannot apply to their own task, apply twice, or apply to a non-open/closed task. Only the task owner can accept or reject an application, and accepting one will create the assignment transactionally while preventing duplicate active assignments.
+
+## AI matching architecture
+
+The initial AI implementation will be explainable semantic matching, not a claimed deep neural network trained for this project:
+
+1. Build normalized text from task title, description, and required skills; build normalized text from worker bio, skills, experience, and relevant history.
+2. Generate sentence embeddings with a documented Sentence Transformers model selected during Phase 5.
+3. Calculate cosine similarity for the semantic skill/task component.
+4. Calculate structured components for skill coverage, experience, rating, availability, location, reputation, and relevant task history.
+5. Combine components using configuration-driven weights and normalize the result to a 0-100 score.
+6. Return component scores and a human-readable explanation so the result can be inspected in a viva and in the client UI.
+
+The recommendation engine will rank tasks for workers and workers for clients using matching scores plus freshness, preferences, budget/deadline fit, interaction history, and platform safety constraints. Smart Task Feed ranking will reuse the same service rather than duplicate scoring logic. Model choice, weighting, fallback behavior, and limitations will be recorded in implementation documentation once built.
+
+## Development phases
+
+1. **Phase 0 — Inspection and planning:** repository baseline, architecture, schema, API plan, risks, and status document.
+2. **Phase 1 — Foundation:** Django/DRF setup, PostgreSQL configuration, environment handling, JWT authentication, base project checks.
+3. **Phase 2 — Profiles and skills:** client/worker profiles and skill management.
+4. **Phase 3 — Tasks:** task CRUD, publishing, search/filtering, and validated lifecycle.
+5. **Phase 4 — Workflows:** applications, assignments, authorization, progress tracking, and submissions.
+6. **Phase 5 — Intelligence:** embeddings, explainable matching, recommendations, and Smart Task Feed.
+7. **Phase 6 — Trust:** reviews, ratings, and transparent reputation calculations.
+8. **Phase 7 — Communication:** notifications, email, Channels, and WebSocket delivery.
+9. **Phase 8 — Payments:** Razorpay Test Mode order/verification integration and transaction records.
+10. **Phase 9 — Safety:** complaints and academic-level anomaly/fraud detection with documented limitations.
+11. **Phase 10 — Administration:** admin workflows, monitoring, dashboards, and analytics.
+12. **Phase 11 — Frontend integration/refinement:** complete role-based React screens, states, validation, and API integration.
+13. **Phase 12 — Advanced features:** only individually selected after core stability; no advanced feature will be allowed to destabilize the core flow.
+14. **Phase 13 — Quality/security/performance:** unit/API/integration tests, security review, and performance review.
+15. **Phase 14 — Delivery:** deployment configuration, documentation synchronization, demo workflow, and final verification.
+
+## Current phase
+
+**Phase 1 — Foundation (complete).**
+
+Implemented foundation scope:
+
+- Django 5.2 modular backend with ASGI/WSGI configuration.
+- Django REST Framework with JSON rendering and JWT authentication.
+- PostgreSQL environment configuration through `backend/.env`; SQLite is used only as a local fallback when `DB_ENGINE` is unset so foundation tests can run without a PostgreSQL service.
+- Custom email-based `User` model with `CLIENT`, `WORKER`, and protected `ADMIN` roles.
+- Registration, login, refresh, and authenticated current-user endpoints.
+- JWT role/email claims and CORS configuration.
+- Initial migration, admin registration, project-local `.gitignore`, and setup README.
+- Automated authentication tests.
+
+## Next action
+
+Next: verify/configure a local PostgreSQL instance, then begin **Phase 2 — Profiles and skills**. The next phase must build on the existing user roles rather than duplicate identity data.
+
+## Technical risks
+
+- PostgreSQL server/client availability and local development configuration are not yet verified; Phase 1 tests currently use SQLite fallback.
+- Python 3.13 and dependency compatibility must be checked when selecting supported Django, DRF, Channels, ML, and database-driver versions.
+- Sentence Transformer models add download size, startup cost, and deployment resource requirements; a documented fallback strategy may be needed for constrained environments.
+- WebSocket deployment requires ASGI configuration and a hosting setup compatible with Django Channels.
+- Razorpay verification requires test credentials and careful server-side signature validation; no secrets may enter Git.
+- Location matching should avoid exposing unnecessary precise location data and should define a simple academic distance policy.
+- Recommendation quality will depend on sparse early-user/task data; cold-start behavior must use content-based signals and transparent defaults.
+- Fraud detection will be academic anomaly detection, not production-grade financial fraud prevention.
+- The broad parent Git repository is not a safe project boundary for commits; a local repository should be initialized in the workspace before feature commits.
+
+## Assumptions
+
+- The requested technology stack is binding: React/Vite/JavaScript/Tailwind, Django/DRF, PostgreSQL, JWT, Django Channels, Sentence Transformers, scikit-learn, Razorpay Test Mode, and Leaflet/OpenStreetMap.
+- The application is a modular monolith for a final-year project; microservices are out of scope.
+- Admin users are represented by the Django user model and protected admin/API permissions, not by an independently duplicated identity table.
+- Payments are test-mode records and demonstration flows only; real-money settlement is out of scope.
+- A task has one primary assigned worker in the initial core workflow. Team tasks, voice, multilingual, dynamic pricing, blockchain, and other advanced features remain deferred.
+- A completed assignment supports one client-to-worker review and one worker-to-client review.
+- Email provider credentials, Razorpay credentials, database credentials, and JWT secrets will be supplied through environment variables when needed.
+- Phase completion will be reported with changed files, tests, results, known issues, and the next recommended phase.

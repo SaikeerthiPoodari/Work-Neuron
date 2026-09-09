@@ -1,0 +1,49 @@
+from django.contrib.auth import authenticate
+from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .models import User
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "email", "first_name", "last_name", "role", "date_joined")
+        read_only_fields = ("id", "date_joined", "role")
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ("email", "password", "password_confirm", "first_name", "last_name", "role")
+
+    def validate_role(self, value):
+        if value == User.Role.ADMIN:
+            raise serializers.ValidationError("Administrator accounts cannot be self-registered.")
+        return value
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs.pop("password_confirm"):
+            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+        return attrs
+
+    def create(self, validated_data):
+        return User.objects.create_user(**validated_data)
+
+
+class WorkNeuronTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["role"] = user.role
+        token["email"] = user.email
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data["user"] = UserSerializer(self.user).data
+        return data
+

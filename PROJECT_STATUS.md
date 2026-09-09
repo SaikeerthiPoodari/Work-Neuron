@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 2 — Profiles and skills (complete).**
+**Phase 3 — Task management (complete).**
 
-Implemented foundation scope:
+Implemented scope across Phases 1–3:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -206,10 +206,16 @@ Implemented foundation scope:
 - Admin-only skill catalog creation/update/deactivation/deletion permissions.
 - Worker-only add/list/remove skill endpoints with duplicate and inactive-skill validation.
 - Profile and skill API tests.
+- Task and task-required-skill models with ownership, indexes, constraints, and lifecycle status.
+- Client task creation, retrieval, update, deletion, and authenticated visibility rules.
+- Worker task discovery limited to open/application-received tasks.
+- Search and filtering by text, budget, location, skill, deadline, and administrator status.
+- Validated task transition service and transition API.
+- Task API tests covering creation, authorization, filtering, lifecycle validation, and closed-task visibility.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance, then begin **Phase 3 — Task management**. The task module must reference the existing users, profiles, and canonical skills rather than duplicate them.
+Next: verify/configure a local PostgreSQL instance, then begin **Phase 4 — Applications and assignments**. Application acceptance will be responsible for creating assignments and will extend the existing task transition rules.
 
 ## Phase 2 completion report
 
@@ -218,7 +224,16 @@ Next: verify/configure a local PostgreSQL instance, then begin **Phase 3 — Tas
 - **Tests performed:** Django system check and automated API/unit tests.
 - **Test results:** `python manage.py check` passed; `python manage.py test` passed with 9 tests.
 - **Known issues:** PostgreSQL service/connectivity is still not available locally, so automated tests use the documented SQLite fallback. Frontend integration is deferred to the frontend refinement phase.
-- **Next recommended phase:** Phase 3 — task CRUD, publishing, search/filtering, and validated task lifecycle.
+  - **Next recommended phase:** Phase 3 — task CRUD, publishing, search/filtering, and validated task lifecycle.
+
+## Phase 3 completion report
+
+- **Completed features:** task CRUD, normalized required skills, client ownership, worker task discovery, search/filtering, pagination-compatible list API, and validated task transitions.
+- **Files changed:** `backend/apps/tasks/`, `backend/config/settings.py`, `backend/config/urls.py`, generated task migration, `README.md`, and this status document.
+- **Tests performed:** Django system check, migrations, and automated API/unit tests.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 15 tests.
+- **Known issues:** PostgreSQL service/connectivity is still not available locally, so automated tests use the documented SQLite fallback. Assignment-specific actor checks will be completed in Phase 4 when assignments exist.
+- **Next recommended phase:** Phase 4 — applications and assignments.
 
 ## Technical risks
 

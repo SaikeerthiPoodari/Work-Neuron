@@ -4,7 +4,7 @@ WorkNeuron is an AI-assisted skill monetization and task fulfillment marketplace
 
 ## Current status
 
-Phase 10 is complete. The backend contains the Django/DRF foundation, JWT authentication, profiles, skills, task workflows, applications, assignments, explainable Sentence Transformer matching, recommendations, Smart Task Feed ranking, two-way reviews, reputation scoring, persisted notifications, optional email, Django Channels WebSockets, Razorpay TEST MODE payments, complaints, academic anomaly alerts, admin monitoring APIs, and analytics. The frontend is intentionally not implemented yet.
+Phase 11 is complete. WorkNeuron includes the Django/DRF backend and a React/Vite/Tailwind frontend with JWT authentication, role-based dashboards, task/application/assignment workflows, explainable matching, recommendations, reviews, reputation, notifications, WebSockets, Razorpay TEST MODE payments, complaints, anomaly alerts, admin monitoring, and analytics.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
@@ -78,6 +78,17 @@ The notification WebSocket endpoint is `ws://localhost:8000/ws/notifications/?to
 Payments are TEST MODE only. Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `backend/.env`; secrets are never returned or committed. The backend returns a clear configuration error when credentials are absent.
 
 Fraud/anomaly detection is an academic rule-based/statistical module. It creates reviewable alerts from activity thresholds and suspicious patterns; it is not a production financial fraud system.
+
+## Frontend setup
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+
+Set `VITE_API_URL` and `VITE_WS_URL` when the backend is not running locally. The production bundle is generated with `npm run build`.
 
 Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `skill`, `deadline_before`, and `deadline_after`. Workers receive only open or application-received tasks; clients receive their own tasks.
 

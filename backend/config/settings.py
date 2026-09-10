@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
+    "channels",
     "apps.accounts",
     "apps.profiles",
     "apps.skills",
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     "apps.recommendations",
     "apps.reviews",
     "apps.reputation",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
@@ -70,6 +72,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}
 
 DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
 if DB_ENGINE == "django.db.backends.sqlite3":

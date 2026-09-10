@@ -58,6 +58,9 @@ class AssignmentStartView(APIView):
             return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
         assignment.started_at = timezone.now()
         assignment.save(update_fields=["started_at", "updated_at"])
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+        create_notification(assignment.task.owner, Notification.Kind.TASK_STATUS_CHANGED, "Task started", f"{request.user.email} started {assignment.task.title}.", f"/assignments/{assignment.id}")
         return Response(AssignmentSerializer(assignment).data)
 
 
@@ -97,6 +100,9 @@ class AssignmentSubmitView(APIView):
         assignment.progress = 100
         assignment.submitted_at = timezone.now()
         assignment.save(update_fields=["submission", "progress", "submitted_at", "updated_at"])
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+        create_notification(assignment.task.owner, Notification.Kind.TASK_SUBMITTED, "Task submitted", f"Work was submitted for {assignment.task.title}.", f"/assignments/{assignment.id}")
         return Response(AssignmentSerializer(assignment).data)
 
 
@@ -119,5 +125,7 @@ class AssignmentCompleteView(APIView):
         assignment.client_feedback = serializer.validated_data.get("client_feedback", "")
         assignment.completed_at = timezone.now()
         assignment.save(update_fields=["client_feedback", "completed_at", "updated_at"])
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+        create_notification(assignment.worker, Notification.Kind.TASK_COMPLETED, "Task completed", f"{assignment.task.title} was marked completed.", f"/assignments/{assignment.id}")
         return Response(AssignmentSerializer(assignment).data)
-

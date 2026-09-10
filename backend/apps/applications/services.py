@@ -17,6 +17,9 @@ def submit_application(application, worker):
     if task.status == Task.Status.OPEN:
         task.status = Task.Status.APPLICATIONS_RECEIVED
         task.save(update_fields=["status", "updated_at"])
+    from apps.notifications.models import Notification
+    from apps.notifications.services import create_notification
+    create_notification(task.owner, Notification.Kind.APPLICATION_RECEIVED, "New application", f"{worker.email} applied to {task.title}.", f"/tasks/{task.id}")
     return application
 
 
@@ -29,6 +32,9 @@ def decide_application(application, action):
     if action == "reject":
         application.status = Application.Status.REJECTED
         application.save(update_fields=["status", "updated_at"])
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+        create_notification(application.worker, Notification.Kind.APPLICATION_REJECTED, "Application rejected", f"Your application for {task.title} was rejected.", f"/tasks/{task.id}")
         return None
     if task.status != Task.Status.APPLICATIONS_RECEIVED:
         raise ValidationError("This task is no longer accepting an assignment.")
@@ -40,6 +46,9 @@ def decide_application(application, action):
     )
     task.status = Task.Status.ASSIGNED
     task.save(update_fields=["status", "updated_at"])
+    from apps.notifications.models import Notification
+    from apps.notifications.services import create_notification
+    create_notification(application.worker, Notification.Kind.APPLICATION_ACCEPTED, "Application accepted", f"You were selected for {task.title}.", f"/assignments/{assignment.id}")
     return assignment
 
 
@@ -55,4 +64,6 @@ def withdraw_application(application, worker):
     if task.status == Task.Status.APPLICATIONS_RECEIVED and not task.applications.filter(status=Application.Status.SUBMITTED).exists():
         task.status = Task.Status.OPEN
         task.save(update_fields=["status", "updated_at"])
-
+    from apps.notifications.models import Notification
+    from apps.notifications.services import create_notification
+    create_notification(task.owner, Notification.Kind.APPLICATION_WITHDRAWN, "Application withdrawn", f"{worker.email} withdrew an application for {task.title}.", f"/tasks/{task.id}")

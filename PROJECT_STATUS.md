@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 6 — Reviews and reputation (complete).**
+**Phase 7 — Notifications and WebSockets (complete).**
 
-Implemented scope across Phases 1–6:
+Implemented scope across Phases 1–7:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -228,10 +228,15 @@ Implemented scope across Phases 1–6:
 - Duplicate review prevention per assignment and direction.
 - Transparent reputation score records with average rating, completion rate, response rate, complaint health, and score components.
 - Reputation recalculation after each received review and public authenticated reputation lookup.
+- Persisted notification records with unread filtering and read-state updates.
+- Notification service with WebSocket group delivery and optional email delivery.
+- JWT-authenticated Django Channels consumer at `/ws/notifications/`.
+- Notification events wired to applications, assignments, and reviews.
+- ASGI `ProtocolTypeRouter` and in-memory channel layer for local development/tests.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 7 — Notifications and WebSockets**. Notifications will be emitted from the existing application, assignment, review, and payment workflows.
+Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 8 — Razorpay Test Mode payments**. Payment state changes will reuse the notification service.
 
 ## Phase 2 completion report
 
@@ -277,6 +282,15 @@ Next: verify/configure a local PostgreSQL instance and pre-download the configur
 - **Test results:** `python manage.py check` passed; `python manage.py test` passed with 31 tests.
 - **Known issues:** response rate and complaint health are provisional 100-point values until response instrumentation and complaints are implemented. PostgreSQL service/connectivity remains unverified locally.
 - **Next recommended phase:** Phase 7 — notifications, email, Django Channels, and WebSockets.
+
+## Phase 7 completion report
+
+- **Completed features:** persisted notifications, unread/read API, optional email hook, Channels consumer, JWT WebSocket authentication, and event integration for applications, assignments, and reviews.
+- **Files changed:** `backend/apps/notifications/`, `backend/config/asgi.py`, `backend/config/routing.py`, `backend/config/settings.py`, notification integrations, `README.md`, and this status document.
+- **Tests performed:** Django system check, migrations, API/service tests, and ASGI import verification.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 33 tests; ASGI application loaded as `ProtocolTypeRouter`.
+- **Known issues:** local development uses an in-memory channel layer; production deployment should use a shared channel backend suitable for the selected host. PostgreSQL service/connectivity remains unverified locally.
+- **Next recommended phase:** Phase 8 — Razorpay Test Mode payments.
 
 ## Technical risks
 

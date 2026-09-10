@@ -15,4 +15,6 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         review = serializer.save()
         from apps.reputation.services import update_reputation
         update_reputation(review.reviewed_user)
-
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+        create_notification(review.reviewed_user, Notification.Kind.REVIEW_RECEIVED, "New review", f"{self.request.user.email} left you a review.", f"/reviews/{review.id}")

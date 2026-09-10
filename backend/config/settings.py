@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     "apps.reputation",
     "apps.notifications",
     "apps.payments",
+    "apps.complaints",
+    "apps.fraud",
 ]
 
 MIDDLEWARE = [

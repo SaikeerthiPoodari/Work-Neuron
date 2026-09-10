@@ -4,7 +4,7 @@ WorkNeuron is an AI-assisted skill monetization and task fulfillment marketplace
 
 ## Current status
 
-Phase 8 is complete. The backend contains the Django/DRF foundation, JWT authentication, profiles, skills, task workflows, applications, assignments, explainable Sentence Transformer matching, recommendations, Smart Task Feed ranking, two-way reviews, reputation scoring, persisted notifications, optional email, Django Channels WebSockets, and Razorpay TEST MODE payments. The frontend is intentionally not implemented yet.
+Phase 9 is complete. The backend contains the Django/DRF foundation, JWT authentication, profiles, skills, task workflows, applications, assignments, explainable Sentence Transformer matching, recommendations, Smart Task Feed ranking, two-way reviews, reputation scoring, persisted notifications, optional email, Django Channels WebSockets, Razorpay TEST MODE payments, complaints, and academic anomaly alerts. The frontend is intentionally not implemented yet.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
@@ -58,10 +58,17 @@ Authentication endpoints:
 - `GET /api/payments/`
 - `POST /api/payments/create-order/`
 - `POST /api/payments/verify/`
+- `GET/POST /api/complaints/`
+- `GET/PATCH /api/complaints/<complaint-id>/`
+- `GET /api/fraud/alerts/` for administrators
+- `POST /api/fraud/scan/` for administrators
+- `PATCH /api/fraud/alerts/<alert-id>/` for administrators
 
 The notification WebSocket endpoint is `ws://localhost:8000/ws/notifications/?token=<access-token>`. The token is validated server-side; unauthenticated sockets are closed.
 
 Payments are TEST MODE only. Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `backend/.env`; secrets are never returned or committed. The backend returns a clear configuration error when credentials are absent.
+
+Fraud/anomaly detection is an academic rule-based/statistical module. It creates reviewable alerts from activity thresholds and suspicious patterns; it is not a production financial fraud system.
 
 Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `skill`, `deadline_before`, and `deadline_after`. Workers receive only open or application-received tasks; clients receive their own tasks.
 

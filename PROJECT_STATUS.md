@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 8 — Razorpay Test Mode payments (complete).**
+**Phase 9 — Complaints and anomaly detection (complete).**
 
-Implemented scope across Phases 1–8:
+Implemented scope across Phases 1–9:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -237,10 +237,14 @@ Implemented scope across Phases 1–8:
 - Transaction records with created, verified, failed, and refunded states.
 - Server-side payment signature verification and authorization.
 - Payment verification notification to the assigned worker.
+- Complaint submission for users, tasks, applications, assignments, and payments.
+- Admin complaint review, resolution notes, and resolved-by tracking.
+- Academic anomaly alerts for high application activity, repeated complaints, unusual transactions, and suspicious rating patterns.
+- Admin-only fraud scan, alert list, and alert status management.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 9 — Complaints and anomaly detection**. Complaint outcomes will later feed reputation and safety analytics.
+Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 10 — Admin dashboard and analytics**. Admin views will aggregate the existing users, tasks, applications, assignments, transactions, complaints, alerts, and reputation data.
 
 ## Phase 2 completion report
 
@@ -304,6 +308,15 @@ Next: verify/configure a local PostgreSQL instance and pre-download the configur
 - **Test results:** `python manage.py check` passed; `python manage.py test` passed with 37 tests.
 - **Known issues:** Razorpay credentials are required for real test checkout and remain environment-only. No real-money settlement or live-mode behavior is implemented. PostgreSQL service/connectivity remains unverified locally.
 - **Next recommended phase:** Phase 9 — complaints and academic-level fraud/anomaly detection.
+
+## Phase 9 completion report
+
+- **Completed features:** complaint intake, complaint authorization, admin resolution, academic anomaly scan, alert persistence, admin alert review, and alert status management.
+- **Files changed:** `backend/apps/complaints/`, `backend/apps/fraud/`, `backend/config/settings.py`, `backend/config/urls.py`, generated migrations, `README.md`, and this status document.
+- **Tests performed:** Django system check, migrations, complaint API tests, and anomaly detection tests.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 41 tests.
+- **Known issues:** anomaly detection is threshold/statistics-based academic functionality, not production-grade fraud detection. Thresholds are currently code-level defaults and should be made configurable before deployment. PostgreSQL service/connectivity remains unverified locally.
+- **Next recommended phase:** Phase 10 — admin dashboard and analytics.
 
 ## Technical risks
 

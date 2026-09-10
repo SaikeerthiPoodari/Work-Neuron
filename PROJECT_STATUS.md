@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 7 — Notifications and WebSockets (complete).**
+**Phase 8 — Razorpay Test Mode payments (complete).**
 
-Implemented scope across Phases 1–7:
+Implemented scope across Phases 1–8:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -233,10 +233,14 @@ Implemented scope across Phases 1–7:
 - JWT-authenticated Django Channels consumer at `/ws/notifications/`.
 - Notification events wired to applications, assignments, and reviews.
 - ASGI `ProtocolTypeRouter` and in-memory channel layer for local development/tests.
+- Razorpay TEST MODE order creation with server-side credentials.
+- Transaction records with created, verified, failed, and refunded states.
+- Server-side payment signature verification and authorization.
+- Payment verification notification to the assigned worker.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 8 — Razorpay Test Mode payments**. Payment state changes will reuse the notification service.
+Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 9 — Complaints and anomaly detection**. Complaint outcomes will later feed reputation and safety analytics.
 
 ## Phase 2 completion report
 
@@ -291,6 +295,15 @@ Next: verify/configure a local PostgreSQL instance and pre-download the configur
 - **Test results:** `python manage.py check` passed; `python manage.py test` passed with 33 tests; ASGI application loaded as `ProtocolTypeRouter`.
 - **Known issues:** local development uses an in-memory channel layer; production deployment should use a shared channel backend suitable for the selected host. PostgreSQL service/connectivity remains unverified locally.
 - **Next recommended phase:** Phase 8 — Razorpay Test Mode payments.
+
+## Phase 8 completion report
+
+- **Completed features:** Razorpay TEST MODE order creation, transaction persistence, signature verification, authorization, failure handling, and payment notifications.
+- **Files changed:** `backend/apps/payments/`, Razorpay requirements/environment settings, notification integration, `README.md`, and this status document.
+- **Tests performed:** Django system check, migrations, and mocked Razorpay API/integration tests.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 37 tests.
+- **Known issues:** Razorpay credentials are required for real test checkout and remain environment-only. No real-money settlement or live-mode behavior is implemented. PostgreSQL service/connectivity remains unverified locally.
+- **Next recommended phase:** Phase 9 — complaints and academic-level fraud/anomaly detection.
 
 ## Technical risks
 

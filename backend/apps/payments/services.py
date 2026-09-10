@@ -1,0 +1,63 @@
+import os
+from decimal import Decimal, ROUND_HALF_UP
+
+from django.core.exceptions import ValidationError
+
+from .models import Transaction
+
+
+class PaymentConfigurationError(RuntimeError):
+    pass
+
+
+def razorpay_client():
+    key_id = os.getenv("RAZORPAY_KEY_ID")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET")
+    if not key_id or not key_secret:
+        raise PaymentConfigurationError("Razorpay TEST MODE credentials are not configured.")
+    import razorpay
+    return razorpay.Client(auth=(key_id, key_secret))
+
+
+def amount_in_paise(amount):
+    return int((Decimal(amount) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def create_test_order(assignment, payer):
+    if assignment.task.status != "COMPLETED":
+        raise ValidationError("Payment can be created only after task completion.")
+    existing = assignment.transactions.filter(status__in=[Transaction.Status.CREATED, Transaction.Status.VERIFIED]).first()
+    if existing:
+        return existing, None
+    client = razorpay_client()
+    currency = os.getenv("RAZORPAY_CURRENCY", "INR")
+    order = client.order.create({
+        "amount": amount_in_paise(assignment.task.budget),
+        "currency": currency,
+        "receipt": f"workneuron-assignment-{assignment.id}",
+        "notes": {"assignment_id": str(assignment.id)},
+    })
+    transaction = Transaction.objects.create(
+        assignment=assignment,
+        payer=payer,
+        amount=assignment.task.budget,
+        currency=currency,
+        provider_order_id=order["id"],
+    )
+    return transaction, order
+
+
+def verify_test_payment(transaction, order_id, payment_id, signature):
+    if transaction.provider_order_id != order_id:
+        raise ValidationError("Payment order does not match the transaction.")
+    client = razorpay_client()
+    client.utility.verify_payment_signature({
+        "razorpay_order_id": order_id,
+        "razorpay_payment_id": payment_id,
+        "razorpay_signature": signature,
+    })
+    transaction.provider_payment_id = payment_id
+    transaction.status = Transaction.Status.VERIFIED
+    transaction.save(update_fields=["provider_payment_id", "status", "updated_at"])
+    return transaction
+

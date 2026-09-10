@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 11 — Frontend integration and refinement (complete).**
+**Phase 13 — Quality, security, and performance review (complete).**
 
-Implemented scope across Phases 1–11:
+Implemented scope across Phases 1–13:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -249,10 +249,12 @@ Implemented scope across Phases 1–11:
 - Task, profile, skills, application, assignment, recommendation, review, payment, complaint, notification, and admin screens.
 - JWT notification WebSocket subscription and Razorpay TEST MODE checkout callback.
 - Loading, error, empty, validation, and responsive layout states.
+- Production Django security settings are environment-controlled with secret enforcement when `DEBUG=False`.
+- Deployment checks, dependency checks, backend regression tests, frontend build, and npm audit completed.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 13 — Quality, security, and performance review**. Phase 12 advanced features are intentionally deferred until the core application is reviewed.
+Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then complete **Phase 14 — Deployment and final demo preparation**. Phase 12 advanced features remain intentionally deferred.
 
 ## Phase 2 completion report
 
@@ -343,6 +345,15 @@ Next: verify/configure a local PostgreSQL instance and pre-download the configur
 - **Test results:** dependencies installed with 0 vulnerabilities reported; `npm run build` passed with 56 modules transformed.
 - **Known issues:** frontend currently assumes the backend is available at `http://localhost:8000` unless `VITE_API_URL`/`VITE_WS_URL` is configured. PostgreSQL service/connectivity remains unverified locally. Browser-level E2E tests are still pending.
 - **Next recommended phase:** Phase 13 — security, performance, and end-to-end quality review. Phase 12 optional advanced features remain deferred.
+
+## Phase 13 completion report
+
+- **Completed features:** deployment security hardening, dependency verification, backend regression review, frontend production build verification, and vulnerability audit.
+- **Files changed:** `backend/config/settings.py`, `backend/.env.example`, and this status document.
+- **Tests performed:** production-style Django deployment check, `pip check`, backend test suite, frontend Vite build, and `npm audit --omit=dev`.
+- **Test results:** deployment check passed with no issues; 44 backend tests passed; frontend build passed with 56 modules; Python dependencies were consistent; npm reported 0 vulnerabilities.
+- **Known issues:** browser-level E2E tests and live PostgreSQL/Razorpay/SMTP/WebSocket environment tests remain deployment-stage checks. Phase 12 advanced features are deferred.
+- **Next recommended phase:** Phase 14 — deployment, documentation synchronization, and final demo preparation.
 
 ## Technical risks
 

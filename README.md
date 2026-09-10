@@ -90,6 +90,19 @@ npm run dev
 
 Set `VITE_API_URL` and `VITE_WS_URL` when the backend is not running locally. The production bundle is generated with `npm run build`.
 
+## Quality checks
+
+```powershell
+cd backend
+python manage.py check --deploy
+python manage.py test
+python -m pip check
+
+cd ..\frontend
+npm audit --omit=dev
+npm run build
+```
+
 Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `skill`, `deadline_before`, and `deadline_after`. Workers receive only open or application-received tasks; clients receive their own tasks.
 
 ## AI matching methodology

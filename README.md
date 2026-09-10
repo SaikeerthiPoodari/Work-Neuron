@@ -4,7 +4,7 @@ WorkNeuron is an AI-assisted skill monetization and task fulfillment marketplace
 
 ## Current status
 
-Phase 11 is complete. WorkNeuron includes the Django/DRF backend and a React/Vite/Tailwind frontend with JWT authentication, role-based dashboards, task/application/assignment workflows, explainable matching, recommendations, reviews, reputation, notifications, WebSockets, Razorpay TEST MODE payments, complaints, anomaly alerts, admin monitoring, and analytics.
+Phase 14 delivery configuration is complete. WorkNeuron includes the Django/DRF backend and a React/Vite/Tailwind frontend with JWT authentication, role-based dashboards, task/application/assignment workflows, explainable matching, recommendations, reviews, reputation, notifications, WebSockets, Razorpay TEST MODE payments, complaints, anomaly alerts, admin monitoring, analytics, and deployment configuration.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
@@ -102,6 +102,10 @@ cd ..\frontend
 npm audit --omit=dev
 npm run build
 ```
+
+## Deployment
+
+Deployment configuration is included in `render.yaml`, `frontend/vercel.json`, and [docs/deployment.md](docs/deployment.md). The backend runs as an ASGI service with Daphne and PostgreSQL `DATABASE_URL`; the frontend is a Vercel SPA. Configure all secrets in the hosting provider environment, never in Git.
 
 Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `skill`, `deadline_before`, and `deadline_after`. Workers receive only open or application-received tasks; clients receive their own tasks.
 

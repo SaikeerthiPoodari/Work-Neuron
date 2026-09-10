@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 13 — Quality, security, and performance review (complete).**
+**Phase 14 — Deployment and final demo preparation (complete).**
 
-Implemented scope across Phases 1–13:
+Implemented scope across Phases 1–14 (Phase 12 advanced features deferred):
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -251,10 +251,13 @@ Implemented scope across Phases 1–13:
 - Loading, error, empty, validation, and responsive layout states.
 - Production Django security settings are environment-controlled with secret enforcement when `DEBUG=False`.
 - Deployment checks, dependency checks, backend regression tests, frontend build, and npm audit completed.
+- Render blueprint with PostgreSQL, ASGI/Daphne startup, migrations, and static collection.
+- PostgreSQL `DATABASE_URL` support and Vercel SPA rewrite configuration.
+- Deployment runbook and final demo workflow documentation.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then complete **Phase 14 — Deployment and final demo preparation**. Phase 12 advanced features remain intentionally deferred.
+Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-download the embedding model, and run the documented end-to-end demo checks. Phase 12 advanced features remain intentionally deferred.
 
 ## Phase 2 completion report
 
@@ -354,6 +357,15 @@ Next: verify/configure a local PostgreSQL instance and pre-download the configur
 - **Test results:** deployment check passed with no issues; 44 backend tests passed; frontend build passed with 56 modules; Python dependencies were consistent; npm reported 0 vulnerabilities.
 - **Known issues:** browser-level E2E tests and live PostgreSQL/Razorpay/SMTP/WebSocket environment tests remain deployment-stage checks. Phase 12 advanced features are deferred.
 - **Next recommended phase:** Phase 14 — deployment, documentation synchronization, and final demo preparation.
+
+## Phase 14 completion report
+
+- **Completed features:** Render/Railway-compatible backend deployment commands, PostgreSQL URL configuration, Vercel SPA configuration, deployment documentation, environment templates, and final demo preparation notes.
+- **Files changed:** `render.yaml`, `frontend/vercel.json`, `docs/deployment.md`, `backend/config/settings.py`, `backend/requirements.txt`, `README.md`, and this status document.
+- **Tests performed:** production-style deployment check with `DATABASE_URL`, full backend suite, dependency consistency check, and prior frontend production build.
+- **Test results:** deployment check passed with no issues; 44 backend tests passed; `pip check` passed; frontend build passed with 56 modules; npm audit reported 0 vulnerabilities.
+- **Known issues:** actual hosted PostgreSQL, Razorpay TEST credentials, SMTP credentials, embedding model warm-up, and browser-level E2E checks still require deployment environment access. Phase 12 advanced features are deferred.
+- **Next recommended action:** deploy the backend/frontend using `docs/deployment.md`, configure secrets, and execute the end-to-end demo checklist.
 
 ## Technical risks
 

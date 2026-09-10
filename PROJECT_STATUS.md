@@ -188,9 +188,9 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
-**Phase 9 — Complaints and anomaly detection (complete).**
+**Phase 10 — Administration and analytics (complete).**
 
-Implemented scope across Phases 1–9:
+Implemented scope across Phases 1–10:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -241,10 +241,13 @@ Implemented scope across Phases 1–9:
 - Admin complaint review, resolution notes, and resolved-by tracking.
 - Academic anomaly alerts for high application activity, repeated complaints, unusual transactions, and suspicious rating patterns.
 - Admin-only fraud scan, alert list, and alert status management.
+- Admin-only user monitoring and account activation management.
+- Admin monitoring endpoints for tasks, applications, assignments, transactions, complaints, and fraud alerts.
+- Live analytics summary for user roles, task statuses, applications, assignments, transactions, reviews, complaints, and alerts.
 
 ## Next action
 
-Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 10 — Admin dashboard and analytics**. Admin views will aggregate the existing users, tasks, applications, assignments, transactions, complaints, alerts, and reputation data.
+Next: verify/configure a local PostgreSQL instance and pre-download the configured embedding model, then begin **Phase 11 — Frontend integration and refinement**. The React/Vite frontend will consume the implemented APIs with protected role-based screens.
 
 ## Phase 2 completion report
 
@@ -317,6 +320,15 @@ Next: verify/configure a local PostgreSQL instance and pre-download the configur
 - **Test results:** `python manage.py check` passed; `python manage.py test` passed with 41 tests.
 - **Known issues:** anomaly detection is threshold/statistics-based academic functionality, not production-grade fraud detection. Thresholds are currently code-level defaults and should be made configurable before deployment. PostgreSQL service/connectivity remains unverified locally.
 - **Next recommended phase:** Phase 10 — admin dashboard and analytics.
+
+## Phase 10 completion report
+
+- **Completed features:** role-protected admin monitoring APIs, user activation management, live analytics summary, and admin tests.
+- **Files changed:** `backend/apps/administration/`, `backend/apps/analytics/`, `backend/config/settings.py`, `backend/config/urls.py`, `README.md`, and this status document.
+- **Tests performed:** Django system check and automated admin/analytics API tests.
+- **Test results:** `python manage.py check` passed; `python manage.py test` passed with 44 tests.
+- **Known issues:** no frontend exists yet; admin API coverage is ready for the React dashboard. PostgreSQL service/connectivity remains unverified locally.
+- **Next recommended phase:** Phase 11 — React/Vite frontend integration and refinement.
 
 ## Technical risks
 

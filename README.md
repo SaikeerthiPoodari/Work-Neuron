@@ -4,7 +4,7 @@ WorkNeuron is an AI-assisted skill monetization and task fulfillment marketplace
 
 ## Current status
 
-Phase 9 is complete. The backend contains the Django/DRF foundation, JWT authentication, profiles, skills, task workflows, applications, assignments, explainable Sentence Transformer matching, recommendations, Smart Task Feed ranking, two-way reviews, reputation scoring, persisted notifications, optional email, Django Channels WebSockets, Razorpay TEST MODE payments, complaints, and academic anomaly alerts. The frontend is intentionally not implemented yet.
+Phase 10 is complete. The backend contains the Django/DRF foundation, JWT authentication, profiles, skills, task workflows, applications, assignments, explainable Sentence Transformer matching, recommendations, Smart Task Feed ranking, two-way reviews, reputation scoring, persisted notifications, optional email, Django Channels WebSockets, Razorpay TEST MODE payments, complaints, academic anomaly alerts, admin monitoring APIs, and analytics. The frontend is intentionally not implemented yet.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
@@ -63,6 +63,15 @@ Authentication endpoints:
 - `GET /api/fraud/alerts/` for administrators
 - `POST /api/fraud/scan/` for administrators
 - `PATCH /api/fraud/alerts/<alert-id>/` for administrators
+- `GET /api/admin/users/`
+- `PATCH /api/admin/users/<user-id>/`
+- `GET /api/admin/tasks/`
+- `GET /api/admin/applications/`
+- `GET /api/admin/assignments/`
+- `GET /api/admin/transactions/`
+- `GET /api/admin/complaints/`
+- `GET /api/admin/fraud-alerts/`
+- `GET /api/analytics/summary/`
 
 The notification WebSocket endpoint is `ws://localhost:8000/ws/notifications/?token=<access-token>`. The token is validated server-side; unauthenticated sockets are closed.
 

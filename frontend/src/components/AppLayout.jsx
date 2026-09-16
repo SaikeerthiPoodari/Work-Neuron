@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const common = [
-  ["/", "Overview"], ["/tasks", "Tasks"], ["/assignments", "Assignments"], ["/recommendations", "Recommendations"], ["/reviews", "Reviews"], ["/payments", "Payments"], ["/complaints", "Complaints"], ["/profile", "Profile"], ["/notifications", "Notifications"],
+  ["/", "Overview"], ["/tasks", "Tasks"], ["/assignments", "Assignments"], ["/recommendations", "Recommendations"], ["/skill-graph", "Skill graph"], ["/reviews", "Reviews"], ["/payments", "Payments"], ["/complaints", "Complaints"], ["/profile", "Profile"], ["/notifications", "Notifications"],
 ];
 
 export default function AppLayout() {

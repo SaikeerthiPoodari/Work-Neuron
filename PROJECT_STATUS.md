@@ -188,9 +188,11 @@ The recommendation engine will rank tasks for workers and workers for clients us
 
 ## Current phase
 
+Phase 12 advanced-feature tracking is active: the Skill Graph is implemented while hosted deployment verification remains the next release gate.
+
 **Phase 14 — Deployment and final demo preparation (complete).**
 
-Implemented scope across Phases 1–14 (Phase 12 advanced features deferred):
+Implemented scope across Phases 1–14, with the first stable Phase 12 feature now complete:
 
 - Django 5.2 modular backend with ASGI/WSGI configuration.
 - Django REST Framework with JSON rendering and JWT authentication.
@@ -257,7 +259,7 @@ Implemented scope across Phases 1–14 (Phase 12 advanced features deferred):
 
 ## Next action
 
-Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-download the embedding model, and run the documented end-to-end demo checks. Phase 12 advanced features remain intentionally deferred.
+Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-download the embedding model, and run the documented end-to-end demo checks. Additional Phase 12 features remain deferred until deployment verification.
 
 ## Phase 2 completion report
 
@@ -369,6 +371,15 @@ Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-down
 
 ## Technical risks
 
+## Phase 12 progress report
+
+- **Completed features:** authenticated Skill Graph endpoint, active skill nodes with worker counts, worker-based skill co-occurrence edges, and a responsive frontend graph discovery view.
+- **Files changed:** `backend/ai_engine/recommendations/skill_graph.py`, `backend/apps/skills/views.py`, `backend/apps/skills/urls.py`, `backend/apps/skills/tests.py`, `frontend/src/pages/SkillGraphPage.jsx`, `frontend/src/App.jsx`, `frontend/src/components/AppLayout.jsx`, `README.md`, and this status document.
+- **Tests performed:** skill API tests, full Django test suite, and frontend production build.
+- **Test results:** 5 skill tests passed; 46 total backend tests passed; Vite build passed with 57 modules transformed.
+- **Known issues:** the graph is a content-based co-occurrence view, not a learned graph neural network; browser-level E2E and hosted PostgreSQL checks remain pending.
+- **Next recommended action:** deploy and run the end-to-end demo checklist before selecting another advanced feature.
+
 - PostgreSQL server/client availability and local development configuration are not yet verified; Phase 1 tests currently use SQLite fallback.
 - Python 3.13 and dependency compatibility must be checked when selecting supported Django, DRF, Channels, ML, and database-driver versions.
 - Sentence Transformer models add download size, startup cost, and deployment resource requirements; a documented fallback strategy may be needed for constrained environments.
@@ -385,7 +396,7 @@ Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-down
 - The application is a modular monolith for a final-year project; microservices are out of scope.
 - Admin users are represented by the Django user model and protected admin/API permissions, not by an independently duplicated identity table.
 - Payments are test-mode records and demonstration flows only; real-money settlement is out of scope.
-- A task has one primary assigned worker in the initial core workflow. Team tasks, voice, multilingual, dynamic pricing, blockchain, and other advanced features remain deferred.
+- A task has one primary assigned worker in the initial core workflow. Voice, multilingual, dynamic pricing, blockchain, and other advanced features remain deferred; the Skill Graph is the first implemented Phase 12 feature.
 - A completed assignment supports one client-to-worker review and one worker-to-client review.
 - Email provider credentials, Razorpay credentials, database credentials, and JWT secrets will be supplied through environment variables when needed.
 - Phase completion will be reported with changed files, tests, results, known issues, and the next recommended phase.

@@ -46,3 +46,18 @@ class SkillApiTests(APITestCase):
         response = self.client.get(reverse("my-skills"))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_authenticated_user_can_view_skill_graph(self):
+        second_skill = Skill.objects.create(name="Django", category="Programming")
+        WorkerSkill.objects.create(worker=self.worker, skill=self.python_skill)
+        WorkerSkill.objects.create(worker=self.worker, skill=second_skill)
+
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get(reverse("skill-graph"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["nodes"]), 2)
+        self.assertEqual(response.data["edges"], [{"source": self.python_skill.id, "target": second_skill.id, "weight": 1}])
+
+    def test_skill_graph_requires_authentication(self):
+        response = self.client.get(reverse("skill-graph"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -1,6 +1,8 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
+from ai_engine.recommendations.skill_graph import build_skill_graph
+
 from .models import Skill, WorkerSkill
 from .permissions import IsAdminRole, IsWorkerRole
 from .serializers import SkillSerializer, WorkerSkillSerializer
@@ -41,3 +43,9 @@ class MySkillDetailView(generics.DestroyAPIView):
     def get_queryset(self):
         return WorkerSkill.objects.filter(worker=self.request.user)
 
+
+class SkillGraphView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return Response(build_skill_graph())

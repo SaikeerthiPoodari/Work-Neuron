@@ -31,6 +31,7 @@ Authentication endpoints:
 - `GET /api/auth/me/` with `Authorization: Bearer <access-token>`
 - `GET/PATCH /api/profiles/me/`
 - `GET /api/skills/`
+- `GET /api/skills/graph/` for authenticated skill co-occurrence discovery
 - `GET/POST /api/skills/mine/` for workers
 - `DELETE /api/skills/mine/<worker-skill-id>/` for workers
 - `POST/PATCH/DELETE /api/skills/<skill-id>/` for administrators
@@ -78,6 +79,8 @@ The notification WebSocket endpoint is `ws://localhost:8000/ws/notifications/?to
 Payments are TEST MODE only. Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `backend/.env`; secrets are never returned or committed. The backend returns a clear configuration error when credentials are absent.
 
 Fraud/anomaly detection is an academic rule-based/statistical module. It creates reviewable alerts from activity thresholds and suspicious patterns; it is not a production financial fraud system.
+
+The Skill Graph is an explainable co-occurrence graph: skills are nodes and an edge connects two skills when at least one worker has selected both. Edge weight is the number of distinct workers sharing the pair; it does not imply causal relationships.
 
 ## Frontend setup
 

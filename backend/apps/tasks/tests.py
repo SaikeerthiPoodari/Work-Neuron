@@ -107,3 +107,17 @@ class TaskApiTests(APITestCase):
         response = self.client.get(reverse("task-detail", kwargs={"pk": task.id}))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_task_decomposition_returns_steps_and_required_skill_matches(self):
+        task = self.create_task(description="Build the Python API. Test the endpoint.")
+        TaskSkill.objects.create(task=task, skill=self.python)
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get(reverse("task-decomposition", kwargs={"pk": task.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["steps"]), 2)
+        self.assertEqual(response.data["steps"][0]["matched_skills"][0]["name"], "Python")
+
+    def test_worker_cannot_decompose_closed_task(self):
+        task = self.create_task(status=Task.Status.CANCELLED)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("task-decomposition", kwargs={"pk": task.id}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

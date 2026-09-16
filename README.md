@@ -38,6 +38,7 @@ Authentication endpoints:
 - `GET/POST /api/tasks/`
 - `GET/PATCH/DELETE /api/tasks/<task-id>/`
 - `POST /api/tasks/<task-id>/transition/`
+- `GET /api/tasks/<task-id>/decomposition/` for authorized explainable task steps
 - `GET/POST /api/applications/`
 - `GET /api/applications/<application-id>/`
 - `POST /api/applications/<application-id>/decide/` for task owners/admins
@@ -81,6 +82,8 @@ Payments are TEST MODE only. Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRE
 Fraud/anomaly detection is an academic rule-based/statistical module. It creates reviewable alerts from activity thresholds and suspicious patterns; it is not a production financial fraud system.
 
 The Skill Graph is an explainable co-occurrence graph: skills are nodes and an edge connects two skills when at least one worker has selected both. Edge weight is the number of distinct workers sharing the pair; it does not imply causal relationships.
+
+Task decomposition uses sentence-based NLP and phrase matching against the task's required skill catalog. It is an academic explainable assistant, not a generative language model or a claim of deep neural task planning.
 
 ## Frontend setup
 

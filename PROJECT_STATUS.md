@@ -374,10 +374,11 @@ Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-down
 ## Phase 12 progress report
 
 - **Completed features:** authenticated Skill Graph endpoint, active skill nodes with worker counts, worker-based skill co-occurrence edges, and a responsive frontend graph discovery view.
+- **Completed features:** authorized Task Decomposition endpoint and frontend view using sentence splitting and required-skill phrase matching.
 - **Files changed:** `backend/ai_engine/recommendations/skill_graph.py`, `backend/apps/skills/views.py`, `backend/apps/skills/urls.py`, `backend/apps/skills/tests.py`, `frontend/src/pages/SkillGraphPage.jsx`, `frontend/src/App.jsx`, `frontend/src/components/AppLayout.jsx`, `README.md`, and this status document.
 - **Tests performed:** skill API tests, full Django test suite, and frontend production build.
-- **Test results:** 5 skill tests passed; 46 total backend tests passed; Vite build passed with 57 modules transformed.
-- **Known issues:** the graph is a content-based co-occurrence view, not a learned graph neural network; browser-level E2E and hosted PostgreSQL checks remain pending.
+- **Test results:** task tests passed; 48 total backend tests passed; Vite build passed with 58 modules transformed.
+- **Known issues:** the graph is a content-based co-occurrence view and decomposition is sentence-based, not a learned graph neural network or generative planner; browser-level E2E and hosted PostgreSQL checks remain pending.
 - **Next recommended action:** deploy and run the end-to-end demo checklist before selecting another advanced feature.
 
 - PostgreSQL server/client availability and local development configuration are not yet verified; Phase 1 tests currently use SQLite fallback.
@@ -396,7 +397,7 @@ Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-down
 - The application is a modular monolith for a final-year project; microservices are out of scope.
 - Admin users are represented by the Django user model and protected admin/API permissions, not by an independently duplicated identity table.
 - Payments are test-mode records and demonstration flows only; real-money settlement is out of scope.
-- A task has one primary assigned worker in the initial core workflow. Voice, multilingual, dynamic pricing, blockchain, and other advanced features remain deferred; the Skill Graph is the first implemented Phase 12 feature.
+- A task has one primary assigned worker in the initial core workflow. Voice, multilingual, dynamic pricing, blockchain, and other advanced features remain deferred; the Skill Graph and Task Decomposition are the currently implemented Phase 12 features.
 - A completed assignment supports one client-to-worker review and one worker-to-client review.
 - Email provider credentials, Razorpay credentials, database credentials, and JWT secrets will be supplied through environment variables when needed.
 - Phase completion will be reported with changed files, tests, results, known issues, and the next recommended phase.

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from ai_engine.recommendations.decomposition import decompose_task
 
 from .models import Task
 from .permissions import IsClientRole, IsTaskOwnerOrAdmin
@@ -88,3 +89,14 @@ class TaskTransitionView(APIView):
             return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
         return Response(TaskSerializer(task, context={"request": request}).data)
 
+
+class TaskDecompositionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        task = generics.get_object_or_404(Task.objects.prefetch_related("skills"), pk=pk)
+        if request.user.role == User.Role.ADMIN or task.owner_id == request.user.id:
+            return Response(decompose_task(task))
+        if request.user.role == User.Role.WORKER and task.status in (Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED):
+            return Response(decompose_task(task))
+        return Response({"detail": "You do not have access to this task."}, status=status.HTTP_403_FORBIDDEN)

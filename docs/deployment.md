@@ -12,7 +12,10 @@ The repository includes `render.yaml` for a Render web service and PostgreSQL da
    - `CSRF_TRUSTED_ORIGINS` with the Vercel frontend origin
    - Razorpay TEST MODE keys if payments are demonstrated
 3. Deploy. The build runs migrations and collects static files; Daphne serves the ASGI application.
-4. Pre-download or warm the configured Sentence Transformer model during deployment if the host has sufficient disk/RAM. Matching returns `503` when the model cannot load rather than fabricating scores.
+4. For live AI matching, select a backend plan with at least 512 MB RAM (1 GB is recommended for predictable model warm-up). Free instances are appropriate for a non-AI preview only.
+5. Pre-download or warm the configured Sentence Transformer model during deployment if the host has sufficient disk/RAM. Matching returns `503` when the model cannot load rather than fabricating scores.
+
+Render free Postgres databases expire after 30 days and free web services have resource limits. They are suitable for a short academic demo, not permanent hosting.
 
 Railway can use the same `backend/requirements.txt`, `python manage.py migrate`, `python manage.py collectstatic --noinput`, and `daphne -b 0.0.0.0 -p $PORT config.asgi:application` commands with a PostgreSQL `DATABASE_URL`.
 
@@ -28,4 +31,3 @@ Railway can use the same `backend/requirements.txt`, `python manage.py migrate`,
 ## Secrets and test integrations
 
 Never commit `.env` files or credentials. Razorpay remains TEST MODE only. Email, database, JWT, and embedding configuration must be supplied through environment variables. After deployment, verify JWT login, task creation, application acceptance, assignment completion, notification WebSockets, and mocked/test payment verification from the frontend.
-

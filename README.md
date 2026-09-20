@@ -96,6 +96,23 @@ npm run dev
 
 Set `VITE_API_URL` and `VITE_WS_URL` when the backend is not running locally. The production bundle is generated with `npm run build`.
 
+## Presentation demo data
+
+After migrations, create repeatable local-only presentation data:
+
+```powershell
+cd backend
+python manage.py seed_demo
+```
+
+This command is idempotent and never runs automatically. It creates sample client, worker, and administrator accounts, skills, tasks at different lifecycle stages, applications, assignments, reviews, a Razorpay TEST transaction record, notifications, a complaint, and a fraud alert.
+
+Use these local demo accounts with the default password `DemoPass123!`:
+
+- `demo.client@workneuron.local`
+- `demo.worker@workneuron.local`
+- `demo.admin@workneuron.local`
+
 ## Quality checks
 
 ```powershell

@@ -256,6 +256,7 @@ Implemented scope across Phases 1–14, with the first stable Phase 12 feature n
 - Render blueprint with PostgreSQL, ASGI/Daphne startup, migrations, and static collection.
 - PostgreSQL `DATABASE_URL` support and Vercel SPA rewrite configuration.
 - Deployment runbook and final demo workflow documentation.
+- Idempotent `seed_demo` management command for local presentation data across the major workflows.
 
 ## Next action
 

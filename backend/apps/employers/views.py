@@ -7,7 +7,9 @@ from rest_framework.views import APIView
 
 from .models import EmployerVerification, VerificationDocument
 from .permissions import IsAdmin, IsEmployer
-from .serializers import EmployerVerificationSerializer, VerificationDocumentSerializer
+from .serializers import EmployerVerificationSerializer, VerificationDocumentSerializer, WorkerDirectorySerializer
+from apps.accounts.models import User
+from django.db.models import Q
 
 
 class EmployerVerificationView(APIView):
@@ -49,6 +51,25 @@ class VerificationDocumentCreateView(generics.CreateAPIView):
         if verification.status == EmployerVerification.Status.VERIFIED:
             raise serializers.ValidationError("Documents cannot be changed after verification.")
         serializer.save(verification=verification)
+
+
+class WorkerDirectoryView(generics.ListAPIView):
+    permission_classes = [IsEmployer]
+    serializer_class = WorkerDirectorySerializer
+
+    def get_queryset(self):
+        queryset = User.objects.filter(role=User.Role.WORKER, is_active=True).select_related("worker_profile").prefetch_related("worker_skills__skill")
+        params = self.request.query_params
+        search = params.get("search")
+        if search:
+            queryset = queryset.filter(Q(first_name__icontains=search) | Q(last_name__icontains=search) | Q(worker_profile__headline__icontains=search) | Q(worker_profile__bio__icontains=search) | Q(worker_skills__skill__name__icontains=search))
+        if params.get("location"):
+            queryset = queryset.filter(worker_profile__location__icontains=params["location"])
+        if params.get("availability"):
+            queryset = queryset.filter(worker_profile__availability=params["availability"])
+        if params.get("min_experience"):
+            queryset = queryset.filter(worker_profile__experience_years__gte=params["min_experience"])
+        return queryset.distinct().order_by("first_name", "last_name")[:100]
 
 
 class AdminVerificationListView(generics.ListAPIView):

@@ -148,3 +148,22 @@ class AnalyticsSummaryView(APIView):
                 "recommendation_requests": SearchEvent.objects.filter(kind=SearchEvent.Kind.RECOMMENDATION).count(),
             },
         })
+
+
+class ClientAnalyticsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != User.Role.CLIENT:
+            return Response({"detail": "Client analytics are available to employers only."}, status=403)
+        owned_tasks = Task.objects.filter(owner=request.user)
+        owned_apps = Application.objects.filter(task__owner=request.user)
+        owned_assignments = Assignment.objects.filter(task__owner=request.user)
+        owned_transactions = Transaction.objects.filter(assignment__task__owner=request.user)
+        accepted = owned_apps.filter(status=Application.Status.ACCEPTED).count()
+        return Response({
+            "jobs": {"total": owned_tasks.count(), "open": owned_tasks.filter(status__in=[Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED]).count(), "completed": owned_tasks.filter(status=Task.Status.COMPLETED).count()},
+            "applications": {"total": owned_apps.count(), "accepted": accepted, "pending": owned_apps.filter(status=Application.Status.SUBMITTED).count(), "acceptance_rate": round(accepted * 100 / owned_apps.count(), 1) if owned_apps.exists() else 0},
+            "assignments": {"total": owned_assignments.count(), "completed": owned_assignments.filter(task__status=Task.Status.COMPLETED).count()},
+            "payments": {"total": str(owned_transactions.filter(status=Transaction.Status.VERIFIED).aggregate(total=Sum("amount"))["total"] or 0), "pending": str(owned_transactions.exclude(status__in=[Transaction.Status.VERIFIED, Transaction.Status.REFUNDED]).aggregate(total=Sum("amount"))["total"] or 0)},
+        })

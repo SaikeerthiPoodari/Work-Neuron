@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     "apps.fraud",
     "apps.administration",
     "apps.analytics",
+    "apps.assistant",
+    "apps.messaging",
 ]
 
 MIDDLEWARE = [

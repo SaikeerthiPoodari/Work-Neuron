@@ -31,6 +31,7 @@ class Task(models.Model):
         NEGOTIABLE = "NEGOTIABLE", "Negotiable"
 
     class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
         OPEN = "OPEN", "Open"
         APPLICATIONS_RECEIVED = "APPLICATIONS_RECEIVED", "Applications received"
         ASSIGNED = "ASSIGNED", "Assigned"

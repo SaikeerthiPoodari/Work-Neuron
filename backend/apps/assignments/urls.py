@@ -3,6 +3,9 @@ from django.urls import path
 from .views import (
     AssignmentCompleteView,
     AssignmentDetailView,
+    AssignmentLevelReviewView,
+    AssignmentLevelSubmitView,
+    AssignmentLevelsConfigView,
     AssignmentListView,
     AssignmentProgressView,
     AssignmentStartView,
@@ -17,5 +20,7 @@ urlpatterns = [
     path("<int:pk>/progress/", AssignmentProgressView.as_view(), name="assignment-progress"),
     path("<int:pk>/submit/", AssignmentSubmitView.as_view(), name="assignment-submit"),
     path("<int:pk>/complete/", AssignmentCompleteView.as_view(), name="assignment-complete"),
+    path("<int:pk>/levels/", AssignmentLevelsConfigView.as_view(), name="assignment-levels-config"),
+    path("<int:pk>/levels/<int:level_id>/submit/", AssignmentLevelSubmitView.as_view(), name="assignment-level-submit"),
+    path("<int:pk>/levels/<int:level_id>/review/", AssignmentLevelReviewView.as_view(), name="assignment-level-review"),
 ]
-

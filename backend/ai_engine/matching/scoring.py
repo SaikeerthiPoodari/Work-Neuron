@@ -6,6 +6,7 @@ from math import asin, cos, radians, sin, sqrt
 from sklearn.metrics.pairwise import cosine_similarity
 
 from ai_engine.embeddings.service import SentenceEmbeddingService
+from apps.profiles.languages import LANGUAGE_LABELS
 
 
 DEFAULT_WEIGHTS = {
@@ -49,6 +50,7 @@ def _worker_text(worker):
             getattr(profile, "location", "") if profile else "",
             getattr(profile, "education", "") if profile else "",
             getattr(profile, "interests", "") if profile else "",
+            ", ".join(LANGUAGE_LABELS.get(code, code) for code in getattr(profile, "languages", [])) if profile else "",
             getattr(profile, "preferred_working_hours", "") if profile else "",
             skill_text,
         ]

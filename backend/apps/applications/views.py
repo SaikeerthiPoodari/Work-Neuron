@@ -138,6 +138,7 @@ class ApplicationComparisonView(APIView):
                     "bio": profile.bio if profile else "",
                     "experience_years": profile.experience_years if profile else None,
                     "availability": profile.availability if profile else None,
+                    "languages": profile.languages if profile else [],
                     "portfolio_url": profile.portfolio_url if profile else "",
                     "skills": [{"id": item.skill_id, "name": item.skill.name,
                                 "proficiency": item.proficiency, "years_experience": item.years_experience}

@@ -48,3 +48,17 @@ class ProfileApiTests(APITestCase):
         profile = self.client.get(reverse("my-profile"))
         self.assertIsNone(profile.data["latitude"])
         self.assertEqual(profile.data["current_city"], "")
+
+    def test_worker_can_save_multiple_supported_languages_and_reload_them(self):
+        self.authenticate(self.worker)
+        selected = ["en", "te", "hi", "fr", "ja"]
+        saved = self.client.patch(reverse("my-profile"), {"languages": selected}, format="json")
+        self.assertEqual(saved.status_code, status.HTTP_200_OK)
+        self.assertEqual(saved.data["languages"], selected)
+        reloaded = self.client.get(reverse("my-profile"))
+        self.assertEqual(reloaded.data["languages"], selected)
+
+    def test_worker_language_validation_rejects_unknown_codes(self):
+        self.authenticate(self.worker)
+        response = self.client.patch(reverse("my-profile"), {"languages": ["en", "xx"]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

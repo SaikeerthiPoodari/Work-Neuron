@@ -9,7 +9,9 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Review.objects.filter(reviewer=self.request.user) | Review.objects.filter(reviewed_user=self.request.user)
+        return (Review.objects.select_related("reviewer", "reviewed_user", "assignment__task")
+                .filter(reviewer=self.request.user) | Review.objects.select_related("reviewer", "reviewed_user", "assignment__task")
+                .filter(reviewed_user=self.request.user))
 
     def perform_create(self, serializer):
         review = serializer.save()

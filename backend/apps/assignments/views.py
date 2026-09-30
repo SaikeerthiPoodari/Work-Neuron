@@ -9,9 +9,10 @@ from apps.accounts.models import User
 from apps.tasks.models import Task
 from apps.tasks.services import transition_task
 
-from .models import Assignment
+from .models import Assignment, AssignmentLevel
 from .permissions import IsWorkerRole
-from .serializers import AssignmentSerializer, CompletionSerializer, ProgressSerializer, SubmissionSerializer
+from .serializers import (AssignmentSerializer, AssignmentLevelsConfigSerializer, CompletionSerializer,
+                          LevelReviewSerializer, LevelSubmissionSerializer, ProgressSerializer, SubmissionSerializer)
 
 
 class AssignmentListView(generics.ListAPIView):
@@ -19,7 +20,7 @@ class AssignmentListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Assignment.objects.select_related("task", "worker", "application")
+        queryset = Assignment.objects.select_related("task", "worker", "application").prefetch_related("levels")
         user = self.request.user
         if user.role == User.Role.WORKER:
             return queryset.filter(worker=user)
@@ -33,7 +34,7 @@ class AssignmentDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Assignment.objects.select_related("task", "worker", "application")
+        queryset = Assignment.objects.select_related("task", "worker", "application").prefetch_related("levels")
         user = self.request.user
         if user.role == User.Role.WORKER:
             return queryset.filter(worker=user)
@@ -52,6 +53,8 @@ class AssignmentStartView(APIView):
             return Response({"detail": "Only the assigned worker can start this task."}, status=status.HTTP_403_FORBIDDEN)
         if assignment.task.status != Task.Status.ASSIGNED:
             return Response({"detail": "Only assigned tasks can be started."}, status=status.HTTP_400_BAD_REQUEST)
+        if not assignment.levels.exists():
+            return Response({"detail": "The client must configure assignment levels before work can start."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             transition_task(assignment.task, Task.Status.IN_PROGRESS)
         except DjangoValidationError as exc:
@@ -68,16 +71,7 @@ class AssignmentProgressView(APIView):
     permission_classes = [IsWorkerRole]
 
     def patch(self, request, pk):
-        assignment = generics.get_object_or_404(Assignment.objects.select_related("task"), pk=pk)
-        if assignment.worker_id != request.user.id:
-            return Response({"detail": "Only the assigned worker can update progress."}, status=status.HTTP_403_FORBIDDEN)
-        if assignment.task.status != Task.Status.IN_PROGRESS:
-            return Response({"detail": "Progress can be updated only while a task is in progress."}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = ProgressSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        assignment.progress = serializer.validated_data["progress"]
-        assignment.save(update_fields=["progress", "updated_at"])
-        return Response(AssignmentSerializer(assignment).data)
+        return Response({"detail": "Progress is calculated from completed assignment levels."}, status=status.HTTP_410_GONE)
 
 
 class AssignmentSubmitView(APIView):
@@ -85,24 +79,110 @@ class AssignmentSubmitView(APIView):
 
     @transaction.atomic
     def post(self, request, pk):
-        assignment = generics.get_object_or_404(Assignment.objects.select_for_update().select_related("task"), pk=pk)
-        if assignment.worker_id != request.user.id:
-            return Response({"detail": "Only the assigned worker can submit this task."}, status=status.HTTP_403_FORBIDDEN)
-        if assignment.task.status != Task.Status.IN_PROGRESS:
-            return Response({"detail": "Only in-progress tasks can be submitted."}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = SubmissionSerializer(data=request.data)
+        return Response({"detail": "Submit work for the current level using its level submission action."}, status=status.HTTP_410_GONE)
+
+
+class AssignmentLevelsConfigView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def put(self, request, pk):
+        assignment = generics.get_object_or_404(Assignment.objects.select_for_update().select_related("task").prefetch_related("levels"), pk=pk)
+        if request.user.role != User.Role.ADMIN and assignment.task.owner_id != request.user.id:
+            return Response({"detail": "Only the task owner can configure assignment levels."}, status=status.HTTP_403_FORBIDDEN)
+        if assignment.started_at or assignment.task.status != Task.Status.ASSIGNED:
+            return Response({"detail": "Levels can only be configured before work starts."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = AssignmentLevelsConfigSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            transition_task(assignment.task, Task.Status.SUBMITTED)
-        except DjangoValidationError as exc:
-            return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
-        assignment.submission = serializer.validated_data["submission"]
-        assignment.progress = 100
-        assignment.submitted_at = timezone.now()
-        assignment.save(update_fields=["submission", "progress", "submitted_at", "updated_at"])
+        assignment.levels.all().delete()
+        for index, values in enumerate(serializer.validated_data["levels"], start=1):
+            AssignmentLevel.objects.create(assignment=assignment, order=index, status=AssignmentLevel.Status.CURRENT if index == 1 else AssignmentLevel.Status.LOCKED, **values)
+        assignment.progress = 0
+        assignment.save(update_fields=["progress", "updated_at"])
+        assignment._prefetched_objects_cache.pop("levels", None)
+        return Response(AssignmentSerializer(assignment).data)
+
+
+class AssignmentLevelSubmitView(APIView):
+    permission_classes = [IsWorkerRole]
+
+    @transaction.atomic
+    def post(self, request, pk, level_id):
+        assignment = generics.get_object_or_404(Assignment.objects.select_for_update().select_related("task", "worker").prefetch_related("levels"), pk=pk)
+        if assignment.worker_id != request.user.id:
+            return Response({"detail": "Only the assigned worker can submit work."}, status=status.HTTP_403_FORBIDDEN)
+        level = generics.get_object_or_404(AssignmentLevel.objects.select_for_update(), pk=level_id, assignment=assignment)
+        if level.status != AssignmentLevel.Status.CURRENT or assignment.task.status not in (Task.Status.IN_PROGRESS, Task.Status.SUBMITTED):
+            return Response({"detail": "Only the current level can be submitted while the assignment is in progress."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = LevelSubmissionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if not assignment.levels.filter(order__gt=level.order).exists() and assignment.task.status == Task.Status.IN_PROGRESS:
+            try:
+                transition_task(assignment.task, Task.Status.SUBMITTED)
+            except DjangoValidationError as exc:
+                return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
+        level.submission = serializer.validated_data["submission"]
+        level.status = AssignmentLevel.Status.SUBMITTED
+        level.submitted_at = timezone.now()
+        level.save(update_fields=["submission", "status", "submitted_at"])
+        assignment.submission = level.submission
+        assignment.submitted_at = level.submitted_at
+        assignment.save(update_fields=["submission", "submitted_at", "updated_at"])
+        assignment._prefetched_objects_cache.pop("levels", None)
         from apps.notifications.models import Notification
         from apps.notifications.services import create_notification
-        create_notification(assignment.task.owner, Notification.Kind.TASK_SUBMITTED, "Task submitted", f"Work was submitted for {assignment.task.title}.", f"/assignments/{assignment.id}")
+        create_notification(assignment.task.owner, Notification.Kind.TASK_SUBMITTED, "Assignment level submitted", f"Level {level.order} was submitted for {assignment.task.title}.", f"/assignments/{assignment.id}")
+        return Response(AssignmentSerializer(assignment).data)
+
+
+class AssignmentLevelReviewView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk, level_id):
+        assignment = generics.get_object_or_404(Assignment.objects.select_for_update().select_related("task").prefetch_related("levels"), pk=pk)
+        if request.user.role != User.Role.ADMIN and assignment.task.owner_id != request.user.id:
+            return Response({"detail": "Only the task owner can review submissions."}, status=status.HTTP_403_FORBIDDEN)
+        level = generics.get_object_or_404(AssignmentLevel.objects.select_for_update(), pk=level_id, assignment=assignment)
+        if level.status != AssignmentLevel.Status.SUBMITTED:
+            return Response({"detail": "This level has no submission awaiting review."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = LevelReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        level.feedback = serializer.validated_data.get("feedback", "")
+        level.reviewed_at = timezone.now()
+        if serializer.validated_data["action"] == "changes":
+            level.status = AssignmentLevel.Status.CURRENT
+        else:
+            level.status = AssignmentLevel.Status.COMPLETED
+            next_level = assignment.levels.filter(order__gt=level.order).order_by("order").first()
+            if next_level:
+                next_level.status = AssignmentLevel.Status.CURRENT
+                next_level.save(update_fields=["status"])
+            else:
+                try:
+                    if assignment.task.status == Task.Status.IN_PROGRESS:
+                        transition_task(assignment.task, Task.Status.SUBMITTED)
+                    transition_task(assignment.task, Task.Status.COMPLETED)
+                except DjangoValidationError as exc:
+                    return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
+                assignment.completed_at = timezone.now()
+                assignment.client_feedback = level.feedback
+        level.save(update_fields=["status", "feedback", "reviewed_at"])
+        total = assignment.levels.count()
+        done = assignment.levels.filter(status=AssignmentLevel.Status.COMPLETED).count()
+        assignment.progress = round(done * 100 / total) if total else 0
+        if done == total:
+            assignment.completed_at = assignment.completed_at or timezone.now()
+        assignment.save(update_fields=["progress", "completed_at", "updated_at"])
+        assignment._prefetched_objects_cache.pop("levels", None)
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+        if done == total:
+            from apps.search.services import record_task_event
+            record_task_event(assignment.worker, assignment.task, "COMPLETE")
+            create_notification(assignment.worker, Notification.Kind.TASK_COMPLETED, "Task completed", f"{assignment.task.title} was marked completed.", f"/assignments/{assignment.id}")
+        elif serializer.validated_data["action"] == "approve":
+            create_notification(assignment.worker, Notification.Kind.TASK_STATUS_CHANGED, "Next level unlocked", f"Level {level.order + 1} is ready for {assignment.task.title}.", f"/assignments/{assignment.id}")
         return Response(AssignmentSerializer(assignment).data)
 
 
@@ -116,6 +196,8 @@ class AssignmentCompleteView(APIView):
             return Response({"detail": "Only the task owner or an administrator can complete this task."}, status=status.HTTP_403_FORBIDDEN)
         if assignment.task.status != Task.Status.SUBMITTED:
             return Response({"detail": "Only submitted tasks can be completed."}, status=status.HTTP_400_BAD_REQUEST)
+        if assignment.levels.exists():
+            return Response({"detail": "Assignments with levels are completed by approving the final level."}, status=status.HTTP_400_BAD_REQUEST)
         serializer = CompletionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:

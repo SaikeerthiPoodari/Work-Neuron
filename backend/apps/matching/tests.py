@@ -10,7 +10,7 @@ from apps.accounts.models import User
 from apps.profiles.models import WorkerProfile
 from apps.skills.models import Skill, WorkerSkill
 from apps.tasks.models import Task, TaskSkill
-from ai_engine.matching.scoring import score_worker_for_task
+from ai_engine.matching.scoring import score_worker_for_task, _worker_text
 
 
 class FakeEmbedder:
@@ -19,6 +19,11 @@ class FakeEmbedder:
 
 
 class MatchingEngineTests(APITestCase):
+    def test_selected_worker_languages_are_included_in_matching_profile_text(self):
+        worker = User.objects.create_user(email="language-worker@example.com", password="secure-pass-123", role=User.Role.WORKER)
+        WorkerProfile.objects.create(user=worker, languages=["en", "ta", "fr"])
+        self.assertIn("English, Tamil, French", _worker_text(worker))
+
     def test_score_contains_explainable_components_and_uses_skill_overlap(self):
         client_user = User.objects.create_user(email="client@example.com", password="secure-pass-123", role=User.Role.CLIENT)
         worker = User.objects.create_user(email="worker@example.com", password="secure-pass-123", role=User.Role.WORKER)

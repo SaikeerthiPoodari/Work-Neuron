@@ -25,3 +25,29 @@ class Assignment(models.Model):
     def __str__(self):
         return f"Assignment: {self.task.title}"
 
+
+class AssignmentLevel(models.Model):
+    class Status(models.TextChoices):
+        LOCKED = "LOCKED", "Locked"
+        CURRENT = "CURRENT", "Current"
+        SUBMITTED = "SUBMITTED", "Submitted"
+        COMPLETED = "COMPLETED", "Completed"
+
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="levels")
+    order = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=180)
+    description = models.TextField(blank=True)
+    requirements = models.TextField(blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.LOCKED)
+    submission = models.TextField(blank=True)
+    feedback = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order"]
+        constraints = [models.UniqueConstraint(fields=["assignment", "order"], name="unique_assignment_level_order")]
+
+    def __str__(self):
+        return f"{self.assignment} · Level {self.order}: {self.title}"

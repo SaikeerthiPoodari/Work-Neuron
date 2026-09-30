@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
+from django.db.models.functions import Trim
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -84,7 +85,14 @@ class WorkerSkillGapView(APIView):
             return Response({"detail": "Skill gap analysis is available to workers only."}, status=status.HTTP_403_FORBIDDEN)
 
         task_pool = Task.objects.filter(status__in=[Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED])
-        categories = list(task_pool.exclude(category="").order_by().values_list("category", flat=True).distinct())
+        categories = []
+        seen_categories = set()
+        for value in task_pool.exclude(category="").annotate(normalized_category=Trim("category")).order_by().values_list("normalized_category", flat=True).distinct():
+            normalized = value.strip()
+            key = normalized.casefold()
+            if normalized and key not in seen_categories:
+                categories.append(normalized)
+                seen_categories.add(key)
         category = (request.query_params.get("category") or "").strip()
         task_id = request.query_params.get("task")
         target_task = None
@@ -94,7 +102,7 @@ class WorkerSkillGapView(APIView):
 
         category_tasks = task_pool
         if category:
-            category_tasks = category_tasks.filter(category__iexact=category)
+            category_tasks = category_tasks.annotate(normalized_category=Trim("category")).filter(normalized_category__iexact=category)
         category_tasks = category_tasks.select_related("owner").prefetch_related("skills").order_by("-created_at")
 
         task_options = [{"id": item.id, "title": item.title, "category": item.category}
@@ -112,7 +120,7 @@ class WorkerSkillGapView(APIView):
             "current_skills": current_data,
             "target": {"category": category or None,
                        "task": {"id": target_task.id, "title": target_task.title} if target_task else None},
-            "required_skills": [], "matched_skills": [], "missing_skills": [],
+            "required_skills": [], "matched_skills": [], "missing_skills": [], "improve_skills": [],
             "match_percentage": 0, "matched_count": 0, "required_count": 0,
             "matching_task_count": category_tasks.count(),
             "data_available": False,
@@ -150,10 +158,14 @@ class WorkerSkillGapView(APIView):
 
         matched = [skill for skill in required_skills if skill["id"] in current_ids]
         missing = [skill for skill in required_skills if skill["id"] not in current_ids]
+        current_by_id = {item["id"]: item for item in current_data}
+        improve = [{**skill, "proficiency": current_by_id[skill["id"]]["proficiency"]}
+                   for skill in matched if current_by_id[skill["id"]]["proficiency"] <= 2]
         required_count = len(required_skills)
         match_percentage = round(len(matched) * 100 / required_count) if required_count else 0
         result.update({"required_skills": required_skills, "matched_skills": matched,
-                       "missing_skills": missing, "match_percentage": match_percentage,
+                       "missing_skills": missing, "improve_skills": improve,
+                       "match_percentage": match_percentage,
                        "matched_count": len(matched), "required_count": required_count,
                        "data_available": bool(required_count),
                        "matching_task_count": task_count})
@@ -172,7 +184,8 @@ class WorkerSkillGapView(APIView):
                 result["explanation"] += f" {next_skill['name']} is a useful next skill because it appears in {next_skill['frequency_percent']}% of matching jobs."
             else:
                 result["explanation"] += " You currently match every skill requirement in this target set."
-        result["recommendations"] = missing[:5]
+        result["recommendations"] = ([{**skill, "action": "learn"} for skill in missing]
+                                      + [{**skill, "action": "improve"} for skill in improve])[:5]
         return Response(result)
 
 

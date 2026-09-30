@@ -51,6 +51,13 @@ class WorkerSkillGapApiTests(APITestCase):
         self.assertEqual(response.data["match_percentage"], 100)
         self.assertEqual(response.data["missing_skills"], [])
 
+    def test_low_proficiency_match_is_flagged_for_improvement(self):
+        WorkerSkill.objects.create(worker=self.worker, skill=self.python, proficiency=2)
+        response = self.analyze(task=self.task_one.id)
+        self.assertEqual([item["name"] for item in response.data["improve_skills"]], ["Python"])
+        suggestion = next(item for item in response.data["recommendations"] if item["name"] == "Python")
+        self.assertEqual(suggestion["action"], "improve")
+
     def test_worker_without_skills_gets_real_requirements_and_guidance(self):
         response = self.analyze(category="Backend")
         self.assertEqual(response.data["current_skills"], [])
@@ -65,6 +72,17 @@ class WorkerSkillGapApiTests(APITestCase):
         empty = self.analyze(category="Unrepresented category")
         self.assertEqual(empty.data["required_skills"], [])
         self.assertFalse(empty.data["data_available"])
+
+    def test_initial_response_lists_unique_categories_and_category_jobs(self):
+        self.make_task("Backend API", " Backend ", [self.python])
+        response = self.analyze()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["categories"], ["Backend", "Marketing"])
+        backend = self.analyze(category="Backend")
+        self.assertEqual({item["title"] for item in backend.data["target_tasks"]}, {"API implementation", "Data service", "Backend API"})
+        selected = self.analyze(category="Backend", task=self.task_one.id)
+        self.assertEqual(selected.data["target"]["task"]["id"], self.task_one.id)
+        self.assertTrue(selected.data["data_available"])
 
     def test_analysis_is_private_to_authenticated_workers(self):
         WorkerSkill.objects.create(worker=self.other_worker, skill=self.django)

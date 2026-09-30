@@ -8,11 +8,12 @@ from .models import Review
 class ReviewSerializer(serializers.ModelSerializer):
     reviewer_email = serializers.EmailField(source="reviewer.email", read_only=True)
     reviewed_user_email = serializers.EmailField(source="reviewed_user.email", read_only=True)
+    assignment_title = serializers.CharField(source="assignment.task.title", read_only=True)
 
     class Meta:
         model = Review
         fields = (
-            "id", "assignment", "reviewer_email", "reviewed_user_email", "rating", "review", "created_at",
+            "id", "assignment", "assignment_title", "reviewer_email", "reviewed_user_email", "rating", "review", "created_at",
         )
         read_only_fields = ("id", "reviewer_email", "reviewed_user_email", "created_at")
 

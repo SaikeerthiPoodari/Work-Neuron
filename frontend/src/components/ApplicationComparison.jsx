@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { get } from "../services/api";
 import { EmptyState, ErrorMessage } from "./StatusMessage";
+import { languageLabels } from "../i18n/languages";
 
 const score = (value) => value == null ? "—" : `${Math.round(value)}%`;
 const rating = (value, count) => value == null ? "Not rated" : `${Number(value).toFixed(1)} / 5 (${count})`;
@@ -107,7 +108,7 @@ function ApplicantCard({ item, selected, canSelect, onToggle }) {
     <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-blue-50 px-2.5 py-1 font-bold text-blue-800">Match {Math.round(match.overall_score)}%</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 font-bold text-emerald-800">Skills {score(match.skill_match)}</span><span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">{rating(worker.rating_average, worker.rating_count)}</span></div>
     <p className="mt-3 line-clamp-3 text-sm text-slate-600">{application.cover_letter}</p>
     <div className="mt-3 flex flex-wrap gap-1.5">{worker.skills.slice(0, 6).map((skill) => <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-600" key={skill.id}>{skill.name}</span>)}{!worker.skills.length && <span className="text-xs text-slate-400">No profile skills listed</span>}</div>
-    <details className="mt-3"><summary className="cursor-pointer text-sm font-bold text-brand">View applicant profile</summary><div className="mt-2 space-y-1 text-sm text-slate-600"><p>{worker.bio || "No profile summary provided."}</p><p>Experience: {worker.experience_years == null ? "Not provided" : `${worker.experience_years} years`}</p><p>Availability: {worker.availability?.replaceAll("_", " ") || "Not provided"}</p><p>Completed tasks: {worker.completed_tasks} · Relevant tasks: {worker.relevant_completed_tasks}</p>{worker.portfolio_url && <a className="font-semibold text-brand underline" href={worker.portfolio_url} target="_blank" rel="noreferrer">Portfolio</a>}</div></details>
+    <details className="mt-3"><summary className="cursor-pointer text-sm font-bold text-brand">View applicant profile</summary><div className="mt-2 space-y-1 text-sm text-slate-600"><p>{worker.bio || "No profile summary provided."}</p><p>Experience: {worker.experience_years == null ? "Not provided" : `${worker.experience_years} years`}</p><p>Availability: {worker.availability?.replaceAll("_", " ") || "Not provided"}</p>{worker.languages?.length > 0 && <p>Languages: {worker.languages.map((code) => languageLabels[code] || code).join(", ")}</p>}<p>Completed tasks: {worker.completed_tasks} · Relevant tasks: {worker.relevant_completed_tasks}</p>{worker.portfolio_url && <a className="font-semibold text-brand underline" href={worker.portfolio_url} target="_blank" rel="noreferrer">Portfolio</a>}</div></details>
   </article>;
 }
 

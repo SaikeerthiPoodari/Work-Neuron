@@ -37,17 +37,19 @@ export default function WorkerSkillGapAnalyzer() {
     <div className="grid gap-3 md:grid-cols-2">
       <label className="text-sm font-semibold text-slate-600">Target category
         <select className="field" value={category} onChange={(event) => updateCategory(event.target.value)}>
-          <option value="">Select a job category</option>
+          <option value="">{loading && !analysis ? "Loading categories…" : "Select a job category"}</option>
           {(analysis?.categories || []).map((item) => <option value={item} key={item}>{item}</option>)}
         </select>
       </label>
       <label className="text-sm font-semibold text-slate-600">Specific current job (optional)
-        <select className="field" value={task} onChange={(event) => updateTask(event.target.value)} disabled={!category}>
-          <option value="">All jobs in selected category</option>
+        <select className="field" value={task} onChange={(event) => updateTask(event.target.value)} disabled={!category || loading}>
+          <option value="">{loading && category ? "Loading jobs…" : "All jobs in selected category"}</option>
           {(analysis?.target_tasks || []).map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}
         </select>
       </label>
     </div>
+    {!loading && !error && analysis && !analysis.categories.length && <p className="text-sm text-slate-500">No active jobs have a category yet. Add a category when creating or editing a task.</p>}
+    {!loading && !error && category && analysis && !analysis.target_tasks.length && <p className="text-sm text-slate-500">No active jobs are listed in this category.</p>}
     {loading ? <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500" role="status">Analyzing your skills against current jobs…</div> : analysis && <>
       <div><h3 className="text-sm font-bold text-slate-700">Your current skills</h3>{analysis.current_skills.length ? <div className="mt-2 flex flex-wrap gap-2">{analysis.current_skills.map((skill) => <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800" key={skill.id}>{skill.name} · {skill.proficiency}/5</span>)}</div> : <p className="mt-2 text-sm text-slate-500">No skills are listed yet. Add skills in your <Link to="/profile" className="font-semibold text-brand underline">worker profile</Link> to get a personalized comparison.</p>}</div>
       {!analysis.target.category && !analysis.target.task ? <EmptyState>{analysis.message}</EmptyState> : !analysis.data_available ? <EmptyState>{analysis.message}</EmptyState> : <>
@@ -57,6 +59,7 @@ export default function WorkerSkillGapAnalyzer() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <SkillList title="Matched skills" skills={analysis.matched_skills} tone="green" empty="No listed job requirements match your current skills yet." />
+          <SkillList title="Skills to improve" skills={analysis.improve_skills || []} tone="violet" empty="Your current matching skills are at proficiency level 3 or above." />
           <SkillList title="Skills to build" skills={analysis.missing_skills} tone="amber" empty="Great work — you match all listed skills for this target." />
         </div>
         <div className="rounded-xl border border-violet-100 bg-violet-50/60 p-4"><p className="text-xs font-black uppercase tracking-widest text-violet-700">Recommended next skills</p>{analysis.recommendations.length ? <div className="mt-3 space-y-2">{analysis.recommendations.map((skill) => <div className="flex flex-wrap items-center justify-between gap-2" key={skill.id}><div><span className="font-bold text-slate-800">{skill.name}</span><span className="ml-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase text-violet-700">{skill.priority} priority</span></div><span className="text-xs text-slate-500">Required by {skill.frequency_percent}% of matching jobs</span></div>)}</div> : <p className="mt-2 text-sm text-slate-600">No skill gaps found for the selected target.</p>}<Link className="mt-4 inline-block text-sm font-bold text-brand hover:underline" to="/recommendations">See your existing job recommendations →</Link></div>
@@ -66,6 +69,6 @@ export default function WorkerSkillGapAnalyzer() {
 }
 
 function SkillList({ title, skills, tone, empty }) {
-  const colors = tone === "green" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900";
-  return <div className="rounded-xl border border-slate-100 p-4"><h3 className="font-bold">{title}</h3>{skills.length ? <ul className="mt-3 space-y-2">{skills.map((skill) => <li className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${colors}`} key={skill.id}><span className="font-semibold">{tone === "green" ? "✓" : "＋"} {skill.name}</span>{tone === "amber" && <span className="text-xs">{skill.frequency_percent}% of jobs · {skill.priority}</span>}</li>)}</ul> : <p className="mt-2 text-sm text-slate-500">{empty}</p>}</div>;
+  const colors = tone === "green" ? "bg-emerald-50 text-emerald-800" : tone === "violet" ? "bg-violet-50 text-violet-800" : "bg-amber-50 text-amber-900";
+  return <div className="rounded-xl border border-slate-100 p-4"><h3 className="font-bold">{title}</h3>{skills.length ? <ul className="mt-3 space-y-2">{skills.map((skill) => <li className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${colors}`} key={skill.id}><span className="font-semibold">{tone === "green" ? "✓" : tone === "violet" ? "↗" : "＋"} {skill.name}</span>{tone === "violet" ? <span className="text-xs">Level {skill.proficiency}/5 · needed in {skill.frequency_percent}% of target jobs</span> : tone === "amber" && <span className="text-xs">{skill.frequency_percent}% of jobs · {skill.priority}</span>}</li>)}</ul> : <p className="mt-2 text-sm text-slate-500">{empty}</p>}</div>;
 }

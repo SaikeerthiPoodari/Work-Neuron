@@ -1,4 +1,7 @@
 import os
+import hashlib
+import hmac
+import json
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -85,3 +88,37 @@ class PaymentApiTests(APITestCase):
         response = self.client.post(reverse("payment-create-order"), {"assignment": self.assignment.id}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_employer_dashboard_uses_verified_transactions_and_completed_jobs(self):
+        Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56",
+            provider_order_id="order_dashboard", status=Transaction.Status.VERIFIED,
+        )
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get(reverse("employer-dashboard"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["summary"]["total_earnings"], "1234.56")
+        self.assertEqual(len(response.data["completed_jobs"]), 1)
+        self.assertEqual(response.data["payment_history"][0]["status"], Transaction.Status.VERIFIED)
+        self.assertIn("active_jobs", response.data)
+        self.assertIn("verification", response.data)
+
+    def test_worker_cannot_view_employer_dashboard(self):
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("employer-dashboard"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_webhook_signature_is_required_and_captured_event_is_idempotent(self):
+        transaction = Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56", provider_order_id="order_webhook",
+        )
+        payload = json.dumps({"event": "payment.captured", "payload": {"payment": {"entity": {"order_id": "order_webhook", "id": "pay_webhook"}}}}).encode()
+        self.client.force_authenticate(user=None)
+        invalid = self.client.post(reverse("payment-webhook"), payload, content_type="application/json")
+        self.assertEqual(invalid.status_code, status.HTTP_401_UNAUTHORIZED)
+        signature = hmac.new(b"webhook-secret", payload, hashlib.sha256).hexdigest()
+        with patch.dict(os.environ, {"RAZORPAY_WEBHOOK_SECRET": "webhook-secret"}, clear=False):
+            response = self.client.post(reverse("payment-webhook"), payload, content_type="application/json", HTTP_X_RAZORPAY_SIGNATURE=signature)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.status, Transaction.Status.VERIFIED)
+        self.assertEqual(transaction.provider_payment_id, "pay_webhook")

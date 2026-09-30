@@ -125,6 +125,8 @@ class AssignmentCompleteView(APIView):
         assignment.client_feedback = serializer.validated_data.get("client_feedback", "")
         assignment.completed_at = timezone.now()
         assignment.save(update_fields=["client_feedback", "completed_at", "updated_at"])
+        from apps.search.services import record_task_event
+        record_task_event(assignment.worker, assignment.task, "COMPLETE")
         from apps.notifications.models import Notification
         from apps.notifications.services import create_notification
         create_notification(assignment.worker, Notification.Kind.TASK_COMPLETED, "Task completed", f"{assignment.task.title} was marked completed.", f"/assignments/{assignment.id}")

@@ -36,3 +36,15 @@ class MyProfileView(APIView):
         serializer.save()
         return Response(serializer.data)
 
+    def delete(self, request):
+        profile, _ = self._profile(request.user)
+        if profile is None:
+            return Response({"detail": "Administrators do not have a marketplace profile."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role == User.Role.WORKER:
+            fields = ("location", "current_city", "current_area", "current_state", "latitude", "longitude", "preferred_job_location")
+        else:
+            fields = ("location",)
+        for field in fields:
+            setattr(profile, field, None if field in ("latitude", "longitude") else "")
+        profile.save(update_fields=[*fields, "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)

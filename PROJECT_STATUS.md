@@ -1,5 +1,148 @@
 # WorkNeuron Project Status
 
+## Continuation brief audit — 2026-09-20
+
+This audit was completed before extending the product for the continuation brief. It distinguishes existing working functionality from the new requirements; no existing module is being replaced as part of the audit.
+
+### Existing feature audit
+
+| Feature | Status | Files/modules involved | What exists | Missing or required change |
+|---|---|---|---|---|
+| Authentication | IMPLEMENTED | `apps/accounts`, `config/urls.py`, `frontend/src/context/AuthContext.jsx` | Email registration, JWT login/refresh, current-user endpoint, role claims | Add new profile preference fields without weakening role authorization |
+| User profiles | PARTIALLY IMPLEMENTED | `apps/accounts`, `apps/profiles` | Name, email, role, role-specific profile endpoint | Education, interests, preferred job type, salary, working hours, richer experience |
+| Worker profiles | PARTIALLY IMPLEMENTED | `apps/profiles/models.py`, serializers/views | Bio, headline, skills, experience years, location, availability, portfolio | Education, interests, preferred salary/job types, coordinates and structured experience |
+| Client/employer profiles | PARTIALLY IMPLEMENTED | `ClientProfile` in `apps/profiles` | Organization name, bio, phone, location, website | Employer type, verification workflow, business details, trust badge |
+| Skills | IMPLEMENTED | `apps/skills` | Catalog, worker skills, proficiency, graph, permissions | Reuse for job-type/category matching and richer worker metadata |
+| Task/job posting | PARTIALLY IMPLEMENTED | `apps/tasks` | Client-owned task, title, description, budget, deadline, location, skills, lifecycle | Category, job type, salary type, working hours, dates, education/experience requirements, employer trust data |
+| Task/job search | PARTIALLY IMPLEMENTED | `apps/tasks/views.py`, `TasksPage.jsx` | Authenticated worker search by text | Job-oriented search endpoint, sorting, distance, category/type and verification filters |
+| Filtering | PARTIALLY IMPLEMENTED | `TaskListCreateView` | Budget, location, skill, deadline, status filters | Salary/type/category/education/experience/working-hours/verified-employer filters |
+| Applications | IMPLEMENTED | `apps/applications` | Apply, withdraw, owner decisions, duplicate/self-task validation | Add job-specific context and employer trust presentation |
+| Assignments | IMPLEMENTED | `apps/assignments` | Transactional selection, start, progress, submission, completion | Job dates/hours and richer worker/employer dashboards |
+| AI matching | PARTIALLY IMPLEMENTED | `ai_engine/matching/scoring.py`, `apps/matching` | Sentence embeddings, cosine similarity, skills, experience, location, availability, explainable weights | Education, interests, job type, salary, structured profile preferences; rename/document as job recommendation scoring where appropriate |
+| Recommendations | PARTIALLY IMPLEMENTED | `apps/recommendations`, `RecommendationsPage.jsx` | Smart task feed and client-to-worker recommendations | Dedicated `/recommendations/jobs/` ranked job feed using complete preference inputs |
+| Smart Task Feed | IMPLEMENTED | `SmartTaskFeedView`, `RecommendationsPage.jsx` | Worker-only ranked open-task feed with filters | Extend it to job types and new job sections rather than duplicate it |
+| Ratings | IMPLEMENTED | `apps/reviews` | Mutual reviews after completed assignments | Display employer trust and job-specific review context |
+| Reputation | IMPLEMENTED | `apps/reputation` | Reputation aggregate and complaint inputs | Include employer reputation in verification/job cards |
+| Notifications | IMPLEMENTED | `apps/notifications`, Channels middleware/consumer | Persisted notifications, read state, WebSocket delivery | Verification and job-report notification kinds |
+| Payments | PARTIALLY IMPLEMENTED | `apps/payments` | Razorpay TEST MODE order/signature verification and transactions | Connect payment status to employer/job workflow; no production escrow claim |
+| Complaints | IMPLEMENTED | `apps/complaints` | User/task/application/assignment/payment complaints and admin resolution | Add suspicious-job reporting category and employer/job references |
+| Fraud detection | PARTIALLY IMPLEMENTED | `apps/fraud` | Academic rule-based alerts for activity, complaints, transactions and rating patterns | Duplicate/suspicious job checks and verification-aware risk signals |
+| Admin dashboard | PARTIALLY IMPLEMENTED | `apps/administration`, `AdminPage.jsx` | User, task, application, assignment, transaction, complaint, fraud views | Verification queue, employer review, document access controls, job reports |
+| Analytics | IMPLEMENTED | `apps/analytics` | Admin summary for users, tasks, applications, assignments, payments, reviews, complaints, alerts | Add job-type, verification, recommendation and voice-search metrics |
+
+### New requirement audit
+
+| Requirement | Status | Assessment |
+|---|---|---|
+| AI job recommendation engine | PARTIALLY IMPLEMENTED | Existing explainable embedding scorer is real and tested, but it ranks `Task` objects and does not yet use education, interests, salary, job type, employer or history. |
+| Voice-based job search | MISSING | No Web Speech API UI, browser permission state, fallback, or `/api/search/voice/` parser exists. |
+| Multilingual voice/NLP | MISSING | No modular English/Telugu/Hindi or mixed-language intent extraction exists. Must report unsupported/low-confidence parsing rather than guess. |
+| Employer verification | MISSING | No employer verification models, document handling, workflow, permissions, or admin queue exists. |
+| Verified badges and fake-job risk reduction | MISSING | Existing complaints/fraud are generic; no verified-only badge rule or job reporting flow exists. |
+| Job types and special sections | PARTIALLY IMPLEMENTED | Free-text availability can mention part-time, but there are no controlled types/categories or dedicated daily-wage/weekend/event/festival filters. |
+| Local employment and distance | PARTIALLY IMPLEMENTED | Text location filtering exists; structured city/area/coordinates, distance sorting and map UI do not. |
+| Worker/employer dashboards | PARTIALLY IMPLEMENTED | Existing role dashboards cover core tasks and assignments; recommendation sections, earnings, verification status, nearby/special job sections are missing. |
+| Admin verification dashboard | MISSING | Existing admin monitor has no verification queue or approve/reject/suspend workflow. |
+
+### Baseline verification
+
+- Backend baseline/current suite: **49 tests passed**; Django system checks reported no issues.
+- Frontend production build: **successful** with Vite.
+- Existing frontend shell/dashboard visual refinement is already present in `frontend/src/components/AppLayout.jsx`, `frontend/src/pages/DashboardPage.jsx`, and `frontend/src/index.css`; this audit preserves those changes.
+
+### Implementation progress
+
+The first implementation slice is complete:
+
+- Extended the existing `Task` model with category, controlled job type, salary type, education requirement, experience requirement, working hours, and optional start/end dates.
+- Extended worker profiles with education, interests, preferred job type, preferred salary, and preferred working hours.
+- Extended client profiles with controlled employer type.
+- Added task filtering for `job_type`, `category`, and `salary_type`.
+- Extended explainable matching with education, interest, job-type, and salary compatibility components while retaining configurable weights and embedding-based semantic similarity.
+- Added regression tests for new filters, date validation, recommendation components, and salary normalization.
+- Focused suite: **17 tests passed** after the slice.
+
+The second implementation slice is complete:
+
+- Added the `apps.employers` verification domain without duplicating client profiles.
+- Added pending, verified, rejected, suspended, and unverified states with admin actions.
+- Added owner-only submissions/resubmissions and private document uploads with extension, MIME, and 5 MB size validation.
+- Added an admin-only verification queue and document retrieval endpoint.
+- Added data-driven verification information to task/recommendation payloads; badges are empty unless status is `VERIFIED`.
+- Added five verification and security regression tests.
+- Added employer verification navigation/form and an admin verification queue with approve, reject, and suspend controls.
+
+The third implementation slice is complete:
+
+- Added authenticated `POST /api/search/voice/` with structured `recognized_text`, language, filters, confidence, and a no-guess fallback message.
+- Added modular English, Telugu-script, Hindi-script, and Telugu-English/Hinglish marker detection for the initial practical query set.
+- Added location and job-type extraction for examples such as `Naaku Hyderabad lo part-time job kavali` and `I need a daily wage job in Hyderabad`.
+- Added browser Web Speech API search with English/Telugu/Hindi selection, microphone permission handling, recognition errors, visible extracted filters, and text-search fallback.
+- Reused the existing `/api/tasks/` endpoint for real filtered results; no duplicate jobs database was introduced.
+- Added five voice-search parser/API tests. Full suite now passes **62 tests**.
+
+The fourth implementation slice is complete:
+
+- Added `/api/recommendations/jobs/` as a dedicated worker job feed reusing the existing embedding/scoring service.
+- Added job-type and verified-employer filters without creating a duplicate recommendation engine.
+- Expanded explanations with education, job-type, salary, and skill compatibility reasons.
+- Updated the recommendations UI with job-type controls, verified-employer-only mode, and factor breakdowns.
+- Recommendation/API focused suite: **9 tests passed**; frontend production build remains successful.
+
+The consolidated marketplace slice is complete:
+
+- Added read-only special-job section endpoints for daily wage, part-time, weekend, event, and festival opportunities.
+- Reused the existing `Task` model and serializer, so applications, assignments, payments, reviews, and recommendations continue to operate on the same records.
+- Added regression coverage for section filtering and documented the new routes.
+
+The final completion slice is complete:
+
+- Added optional task latitude/longitude, remote flag, radius-based nearby search, and distance-sorted `distance_km` results.
+- Added `JOB_REPORT` complaint category for suspicious listings, preserving the existing complaint/admin resolution workflow.
+- Added private employer document selection/upload in the verification UI.
+- Added persisted voice-search and recommendation activity events plus admin analytics counters.
+- Added regression coverage for nearby search and suspicious-job reporting.
+- Current full backend suite: **67 tests passed**. Frontend production build: successful.
+
+The platform now has the requested core WorkNeuron workflow: profile/job preferences, explainable recommendations, voice search, special employment sections, employer verification, verified trust signals, local distance search, suspicious-job reporting, application/assignment/payment/review flows, notifications, fraud alerts, admin monitoring, and a Leaflet/OpenStreetMap nearby-jobs view. Distance calculation remains independent of tile availability and never exposes worker coordinates.
+
+## Final location and delivery status
+
+| Feature | Status | Evidence/Test |
+|---|---|---|
+| Leaflet/OpenStreetMap map and list/map toggle | IMPLEMENTED | `JobMap.jsx`, `NearbyJobsPage.jsx`, Leaflet production build successful |
+| Haversine nearby/radius search | IMPLEMENTED | Coordinate-aware `/api/tasks/` response with `distance_km`; nearby tests |
+| Structured worker/job location | IMPLEMENTED | Profile/task migrations `0003` and `0004`; location validation tests |
+| Work modes and on-site validation | IMPLEMENTED | `REMOTE`, `ONSITE`, `HYBRID`; on-site publication test |
+| Voice location and radius extraction | IMPLEMENTED | Search parser/API tests including 5 km query |
+| Location-aware AI scoring | IMPLEMENTED | Explainable `location_score` using mode, text match, coordinates, and preferred radius |
+| Suspicious job reports | IMPLEMENTED | `JOB_REPORT` complaint category and API regression test |
+| Employer verification document UI/access control | IMPLEMENTED | Private upload endpoint, admin-only retrieval, employer upload form, verification tests |
+| Voice/recommendation analytics | IMPLEMENTED | `SearchEvent` model and admin analytics counters |
+| Production deployment verification | PARTIALLY IMPLEMENTED | `.env.example`, `docs/DEPLOYMENT.md`, and deployment checklist added; external credentials/hosting not available for live verification |
+| Final demo data | PARTIALLY IMPLEMENTED | Existing idempotent `seed_demo` covers core workflows; expanded location/verification demo records still require a seed-data pass |
+| Full backend regression | IMPLEMENTED | **69 tests passed**, Django system checks clean |
+| Frontend production build | IMPLEMENTED | Vite build successful after Leaflet integration |
+
+### Prioritized implementation plan
+
+1. Extend `Task` and `ClientProfile` in place with controlled job type/category/salary/work-hour/date fields and employer metadata; create migrations and compatibility defaults.
+2. Add structured worker preferences/education/interests and an employer verification aggregate with private verification documents and strict admin-only access.
+3. Extend task search and smart feed with category/type/salary/location/verification filters and dedicated aliases for special job sections; avoid duplicate job models/endpoints where existing task routes can serve the same data.
+4. Refactor the reusable AI scorer into configurable job recommendation scoring. Add education, experience, interest, location, job type, availability and salary components while retaining semantic/skill explanations and truthful model documentation.
+5. Implement browser voice search with Web Speech API where available, language selection/fallback, a backend intent parser for English plus practical Telugu/Hinglish/Hindi patterns, editable extracted filters, and confidence-aware responses.
+6. Add employer verification submission/status/admin review, verified badges only for `VERIFIED`, suspicious-job reporting, and verification-aware admin analytics/notifications.
+7. Upgrade worker, employer and admin screens for recommendation sections, voice search, special job categories, verification status, reports and review queues.
+8. Add focused model/API/service/frontend tests, security checks for documents and admin actions, update README/API documentation, run migrations, backend tests, frontend build and deployment checks.
+
+### Planned change map
+
+- **Database:** extend `Task`, `ClientProfile`, `WorkerProfile`; add only required preference, verification/document, job-report and category/type structures with indexes and constraints.
+- **API:** extend existing task/profile/recommendation routes first; add verification and voice-search routes only where no existing route can represent the workflow. Proposed routes are `/api/employers/verification/`, `/api/admin/verifications/`, `/api/recommendations/jobs/`, `/api/search/voice/`, and filtered task aliases if required by the final UI.
+- **AI/NLP:** reusable configurable scoring service plus modular query intent extraction; embeddings/cosine similarity remain the semantic method, not a claimed trained neural network.
+- **Frontend:** `TasksPage`, `RecommendationsPage`, `ProfilePage`, `TaskDetailPage`, role dashboards, admin monitor, reusable job cards, verification badge, voice search control and accessible filter controls.
+- **Testing:** model constraints, recommendation ranking/explanations, multilingual parsing and fallback, verification permissions/status transitions, private document access, job filters/types, badges, reports and regression coverage for all 49 existing tests.
+
 ## Project overview
 
 **WorkNeuron** is planned as an AI-assisted skill monetization and task fulfillment marketplace. It will connect clients who publish work with workers who discover, apply for, and complete suitable tasks. The system will provide role-specific workflows for clients, workers, and administrators, with explainable semantic matching and recommendation features.
@@ -371,6 +514,65 @@ Next: configure the actual hosted PostgreSQL/Razorpay/SMTP credentials, pre-down
 - **Next recommended action:** deploy the backend/frontend using `docs/deployment.md`, configure secrets, and execute the end-to-end demo checklist.
 
 ## Technical risks
+
+## Approved continuation implementation — 2026-09-25
+
+| Feature | Status | Evidence/Test |
+|---|---|---|
+| Job-specific Report This Job | IMPLEMENTED | Task detail form, `JOB_REPORT` complaint validation, duplicate prevention, admin resolve/dismiss UI; complaint tests pass. |
+| Employer earnings/completed jobs/payment history | IMPLEMENTED | `GET /api/payments/employer-dashboard/`, verified-transaction aggregation, Payments UI; payment tests pass. |
+| Recommendation interaction learning | PARTIALLY IMPLEMENTED | Task-linked view/application/completion events and capped explainable history boost; recommendation and interaction suites pass. |
+| Remote/location ranking | IMPLEMENTED | Explicit remote eligibility, Haversine radius filtering, distance/salary/newest ordering; task/location tests pass. |
+| Backend regression suite | IMPLEMENTED | `python manage.py check` clean; 78 tests passed. |
+| Frontend regression build | IMPLEMENTED | `npm.cmd run build` passed with 106 modules transformed. |
+
+### Changes in this continuation
+
+- Added migration `backend/apps/complaints/migrations/0003_alter_complaint_status.py` for dismissed reports.
+- Added migration `backend/apps/search/migrations/0002_searchevent_task_alter_searchevent_kind.py` for task-linked interaction signals.
+- Added `GET /api/payments/employer-dashboard/`.
+- Added task-detail reporting and admin report moderation controls.
+- Added `record_task_event()` for views, applications and completions; recommendation history boosts remain intentionally lightweight and explainable.
+
+External deployment remains unverified because hosted PostgreSQL, private storage, Razorpay credentials, HTTPS and a production WebSocket broker are not available in this workspace.
+
+## Demo data and walkthrough update — 2026-09-25
+
+- `seed_demo` now creates synthetic verified and pending employers, Hyderabad/Bengaluru worker location preferences, remote/on-site/hybrid jobs, flexible job categories, varied salaries, applications, completed work, ratings, a Razorpay TEST transaction, a job report and moderation data.
+- Seed execution succeeded and the seed command test passed.
+- `docs/DEMO_GUIDE.md` now covers reporting, employer financials and moderation in the walkthrough.
+- Full regression after this phase: 73 backend tests passed; Django system check passed. The last frontend production build also passed.
+
+## Production-hardening update — 2026-09-25
+
+| Feature | Status | Evidence/Test |
+|---|---|---|
+| Health/readiness endpoint | IMPLEMENTED | `GET /health/` checks the configured database and returns 503 on failure; automated test added. |
+| Sensitive API throttling foundation | IMPLEMENTED | DRF anonymous/user/scoped throttles configured through environment variables; applied to voice, reports, uploads and payments. |
+| Razorpay webhook verification | PARTIALLY IMPLEMENTED | HMAC signature validation, captured/authorized/failed state handling and idempotent transaction updates implemented and tested; real provider delivery remains external. |
+| PostgreSQL production verification | BLOCKED BY EXTERNAL INFRASTRUCTURE | URL/driver/migrations/settings are prepared; no hosted PostgreSQL credentials or service were available for live verification. |
+| Private cloud storage | BLOCKED BY EXTERNAL INFRASTRUCTURE | Upload validation and private admin endpoint exist; cloud bucket/credentials/retention require deployment configuration. |
+| Browser E2E/accessibility | BLOCKED BY EXTERNAL INFRASTRUCTURE | Vite build and API tests pass; no configured browser automation runner/device matrix is available in this workspace. |
+
+Latest full regression: 77 backend tests passed, Django system check passed, and frontend production build passed.
+
+See [WORKNEURON_FINAL_READINESS_REPORT.md](WORKNEURON_FINAL_READINESS_REPORT.md) for the complete final inventory, verified evidence, external blockers, security notes and deployment checklist.
+See [WORKNEURON_FULL_QA_REPORT.md](WORKNEURON_FULL_QA_REPORT.md) for the final A–Z QA checklist and release-candidate findings.
+
+## Final release-candidate synchronization — 2026-09-25
+
+The historical phase notes above are retained for traceability. The current release-candidate status is:
+
+| Current feature | Status | Evidence |
+|---|---|---|
+| Structured job reports | IMPLEMENTED | Report reason field, task/reporter association, duplicate prevention, admin resolution/dismissal and admin notification. |
+| Employer operations dashboard | IMPLEMENTED | Real active-job, application, selected-worker, report, verification, completed-job, earnings and payment-history data. |
+| Search/filtering | PARTIALLY IMPLEMENTED | Structured filters and sorting verified; semantic search, comprehensive pagination and large-scale geospatial optimization remain. |
+| Recommendation learning | PARTIALLY IMPLEMENTED | Task-linked views/applications/completions influence a capped explainable boost; no trained ranking model is claimed. |
+| Browser E2E/accessibility | BLOCKED BY EXTERNAL INFRASTRUCTURE | No configured browser/device runner in this environment. |
+| Advanced team/offline/gamification/trends/career assistant | OPTIONAL/FUTURE | No superficial placeholders added. |
+
+Final release-candidate evidence: 78 backend tests passed, Django check passed, frontend build passed, seed passed, dependency checks passed, and migrations are applied with no pending operations.
 
 ## Phase 12 progress report
 

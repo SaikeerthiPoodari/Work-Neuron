@@ -37,3 +37,14 @@ class ProfileApiTests(APITestCase):
         response = self.client.get(reverse("my-profile"))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_worker_location_requires_coordinate_pair_and_can_be_cleared(self):
+        self.authenticate(self.worker)
+        invalid = self.client.patch(reverse("my-profile"), {"latitude": "17.3"}, format="json")
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        valid = self.client.patch(reverse("my-profile"), {"current_city": "Hyderabad", "latitude": "17.3", "longitude": "78.5"}, format="json")
+        self.assertEqual(valid.status_code, status.HTTP_200_OK)
+        cleared = self.client.delete(reverse("my-profile"))
+        self.assertEqual(cleared.status_code, status.HTTP_204_NO_CONTENT)
+        profile = self.client.get(reverse("my-profile"))
+        self.assertIsNone(profile.data["latitude"])
+        self.assertEqual(profile.data["current_city"], "")

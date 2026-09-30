@@ -13,4 +13,23 @@
   .button-secondary { @apply rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-slate-50; }
   .field { @apply mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-blue-100; }
   .label { @apply text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  .brand-mark { @apply flex h-9 w-9 items-center justify-center rounded-xl text-sm font-black text-white shadow-lg shadow-slate-300; background: linear-gradient(145deg, #172033, #3657d6); }
+  .avatar { @apply flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-brand; }
+  .nav-item { @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-ink; }
+  .nav-item-active { @apply bg-white text-brand shadow-sm ring-1 ring-slate-200/70; }
+  .nav-icon { @apply flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-500; }
+  .nav-item-active .nav-icon { @apply bg-blue-50 text-brand; }
+  .mobile-nav { @apply fixed bottom-0 left-0 right-0 z-30 flex justify-around border-t border-slate-200 bg-white/95 px-2 py-2 backdrop-blur; }
+  .mobile-nav a { @apply flex min-w-[3.5rem] flex-col items-center gap-0.5 text-[10px] font-bold; }
+  .mobile-nav a span { @apply text-lg leading-5; }
+  .hero-panel { @apply relative overflow-hidden rounded-3xl p-7 shadow-xl shadow-blue-900/10 sm:p-9; background: radial-gradient(circle at 90% 10%, rgba(94,234,212,.35), transparent 28%), linear-gradient(120deg, #172033 0%, #2844a7 62%, #3657d6 100%); }
+  .hero-orb { @apply absolute -right-5 -top-10 flex h-48 w-48 items-center justify-center rounded-full border border-white/20 text-6xl text-white/30; box-shadow: 0 0 0 24px rgba(255,255,255,.04), 0 0 0 48px rgba(255,255,255,.025); }
+  .status-dot { @apply h-2 w-2 rounded-full bg-emerald-500; box-shadow: 0 0 0 4px #dcfce7; }
+  .metric-card { @apply card border-l-4 transition hover:-translate-y-0.5 hover:shadow-md; }
+  .metric-blue { @apply border-l-brand text-brand; }
+  .metric-mint { @apply border-l-emerald-400 text-emerald-600; }
+  .metric-amber { @apply border-l-amber-400 text-amber-500; }
+  .metric-rose { @apply border-l-rose-400 text-rose-500; }
+  .job-marker { background: transparent; border: 0; }
+  .job-marker span { display: flex; height: 24px; width: 24px; align-items: center; justify-content: center; border-radius: 9999px; background: #3657d6; color: white; font-size: 16px; box-shadow: 0 0 0 4px rgba(54,87,214,.22); }
 }

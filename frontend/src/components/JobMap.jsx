@@ -1,0 +1,8 @@
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { Link } from "react-router-dom";
+
+const icon = L.divIcon({ className: "job-marker", html: "<span>●</span>", iconSize: [24, 24], iconAnchor: [12, 12] });
+
+export default function JobMap({ jobs, center }) { const markers = jobs.filter((job) => job.latitude != null && job.longitude != null); if (!center) return <div className="flex h-80 items-center justify-center rounded-2xl bg-slate-100 p-6 text-center text-sm text-slate-500">Allow location access or enter a location to see jobs on the map.</div>; return <MapContainer center={center} zoom={12} scrollWheelZoom className="h-[28rem] w-full rounded-2xl"><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />{markers.map((job) => <Marker key={job.id} position={[Number(job.latitude), Number(job.longitude)]} icon={icon}><Popup><div className="min-w-[190px] text-sm"><p className="font-black">{job.title}</p><p className="mt-1 text-slate-500">{job.location || job.location_city || "Local opportunity"}</p><p className="mt-1 font-bold text-emerald-700">₹{job.budget} · {job.job_type?.replaceAll("_", " ")}</p>{job.distance_km != null && <p className="mt-1 text-slate-500">{job.distance_km} km away</p>}<p className="mt-1 text-xs font-bold text-emerald-700">{job.employer_verification?.status === "VERIFIED" ? `✓ ${job.employer_verification.badge_text}` : "Employer not verified"}</p><Link className="mt-2 inline-block font-bold text-brand" to={`/tasks/${job.id}`}>View job →</Link></div></Popup></Marker>)}</MapContainer>; }

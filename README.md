@@ -8,6 +8,8 @@ Phase 14 delivery configuration is complete. WorkNeuron includes the Django/DRF 
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
+Run the setup commands below from the repository root (the `WorkNeuron` folder containing this README). If your terminal starts in its parent folder (`WorkNeuron_Core_First`), first run `Set-Location .\WorkNeuron`.
+
 ## Phase 1 setup
 
 ```powershell
@@ -30,12 +32,17 @@ Authentication endpoints:
 - `POST /api/auth/refresh/`
 - `GET /api/auth/me/` with `Authorization: Bearer <access-token>`
 - `GET/PATCH /api/profiles/me/`
+- `GET/POST/PATCH /api/employers/verification/`
+- `POST /api/employers/verification/documents/` (private verification uploads)
+- `POST /api/search/voice/` for explainable voice-query intent extraction
 - `GET /api/skills/`
 - `GET /api/skills/graph/` for authenticated skill co-occurrence discovery
 - `GET/POST /api/skills/mine/` for workers
 - `DELETE /api/skills/mine/<worker-skill-id>/` for workers
 - `POST/PATCH/DELETE /api/skills/<skill-id>/` for administrators
 - `GET/POST /api/tasks/`
+- `GET /api/tasks/daily-wage/`, `/api/tasks/part-time/`, `/api/tasks/weekend/`, `/api/tasks/event/`, `/api/tasks/festival/`
+- Nearby search uses `latitude`, `longitude`, and optional `radius_km` query parameters; results include `distance_km` when coordinates are available.
 - `GET/PATCH/DELETE /api/tasks/<task-id>/`
 - `POST /api/tasks/<task-id>/transition/`
 - `GET /api/tasks/<task-id>/decomposition/` for authorized explainable task steps
@@ -52,15 +59,19 @@ Authentication endpoints:
 - `GET /api/matching/tasks/<task-id>/workers/`
 - `GET /api/recommendations/workers/?task=<task-id>`
 - `GET /api/recommendations/smart-feed/`
+- `GET /api/recommendations/jobs/` for personalized explainable job recommendations; supports `job_type`, `category`, `location`, budget, and `verified=true` filters
 - `GET/POST /api/reviews/`
 - `GET /api/reputation/me/`
 - `GET /api/reputation/users/<user-id>/`
 - `GET /api/notifications/`
 - `POST /api/notifications/<notification-id>/read/`
 - `GET /api/payments/`
+- `GET /api/payments/employer-dashboard/` for employer earnings, completed jobs and payment history derived from real records
+- `POST /api/payments/webhook/` for server-side Razorpay webhook signature verification and idempotent transaction state updates
 - `POST /api/payments/create-order/`
 - `POST /api/payments/verify/`
 - `GET/POST /api/complaints/`
+- Job details submit reports through `POST /api/complaints/` with `category=JOB_REPORT` and a `task` reference; duplicate active reports are rejected.
 - `GET/PATCH /api/complaints/<complaint-id>/`
 - `GET /api/fraud/alerts/` for administrators
 - `POST /api/fraud/scan/` for administrators
@@ -73,7 +84,12 @@ Authentication endpoints:
 - `GET /api/admin/transactions/`
 - `GET /api/admin/complaints/`
 - `GET /api/admin/fraud-alerts/`
+- `GET /api/admin/verifications/`
+- `POST /api/admin/verifications/<id>/action/` with `approve`, `reject`, or `suspend`
+- `GET /api/admin/verification-documents/<id>/` for authorized administrators only
+- Analytics includes `search_activity.voice_searches` and `search_activity.recommendation_requests`.
 - `GET /api/analytics/summary/`
+- `GET /health/` for unauthenticated liveness/database readiness checks
 
 The notification WebSocket endpoint is `ws://localhost:8000/ws/notifications/?token=<access-token>`. The token is validated server-side; unauthenticated sockets are closed.
 
@@ -130,7 +146,7 @@ npm run build
 
 Deployment configuration is included in `render.yaml`, `frontend/vercel.json`, and [docs/deployment.md](docs/deployment.md). The backend runs as an ASGI service with Daphne and PostgreSQL `DATABASE_URL`; the frontend is a Vercel SPA. Configure all secrets in the hosting provider environment, never in Git.
 
-Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `skill`, `deadline_before`, and `deadline_after`. Workers receive only open or application-received tasks; clients receive their own tasks.
+Task list query parameters currently include `search`, `min_budget`, `max_budget`, `location`, `location_city`, `location_area`, `location_state`, `latitude`, `longitude`, `radius_km`, `sort`, `skill`, `job_type`, `category`, `salary_type`, `education`, `experience`, `working_hours`, `employer_type`, `verified`, `work_mode`, `deadline_before`, and `deadline_after`. Tasks now also support controlled job types (`FULL_TIME`, `PART_TIME`, `DAILY_WAGE`, `WEEKEND`, `EVENT`, `FESTIVAL`, `CONTRACT`, `FREELANCE`, `TEMPORARY`, `INTERNSHIP`) and salary modes (`MONTHLY`, `DAILY`, `HOURLY`, `FIXED`, `NEGOTIABLE`). Workers receive only open or application-received tasks; clients receive their own tasks.
 
 ## AI matching methodology
 

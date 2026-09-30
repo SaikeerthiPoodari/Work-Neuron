@@ -14,6 +14,8 @@ class Notification(models.Model):
         TASK_COMPLETED = "TASK_COMPLETED", "Task completed"
         REVIEW_RECEIVED = "REVIEW_RECEIVED", "Review received"
         PAYMENT_UPDATE = "PAYMENT_UPDATE", "Payment update"
+        REPORT_RECEIVED = "REPORT_RECEIVED", "Report received"
+        VERIFICATION_UPDATE = "VERIFICATION_UPDATE", "Verification update"
 
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
     kind = models.CharField(max_length=32, choices=Kind.choices)
@@ -29,4 +31,3 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.recipient.email}: {self.title}"
-

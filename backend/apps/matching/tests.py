@@ -41,6 +41,17 @@ class MatchingEngineTests(APITestCase):
         self.assertIn("Django", result["explanation"])
         self.assertIn("weights", result)
 
+    def test_score_includes_job_preference_components(self):
+        client_user = User.objects.create_user(email="client2@example.com", password="secure-pass-123", role=User.Role.CLIENT)
+        worker = User.objects.create_user(email="worker2@example.com", password="secure-pass-123", role=User.Role.WORKER)
+        WorkerProfile.objects.create(user=worker, education="B.Tech CSE", interests="Software development", preferred_job_type="PART_TIME", preferred_salary="500.00")
+        task = Task.objects.create(owner=client_user, title="Python intern", description="Software development", budget="1000.00", category="Software", job_type=Task.JobType.PART_TIME, education_requirement="B.Tech", deadline=timezone.now() + timedelta(days=5))
+        result = score_worker_for_task(task, worker, embedder=FakeEmbedder())
+        self.assertEqual(result["education_score"], 100.0)
+        self.assertEqual(result["job_type_score"], 100.0)
+        self.assertEqual(result["salary_score"], 100.0)
+        self.assertIn("education", result["weights"])
+
 
 class MatchingApiTests(APITestCase):
     def setUp(self):
@@ -79,4 +90,3 @@ class MatchingApiTests(APITestCase):
         self.client.force_authenticate(user=self.worker)
         response = self.client.get(reverse("task-worker-matches", kwargs={"pk": self.task.id}))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-

@@ -35,8 +35,12 @@ class TaskApiTests(APITestCase):
             title=overrides.get("title", "Existing task"),
             description=overrides.get("description", "Task description"),
             budget=overrides.get("budget", "500.00"),
+            category=overrides.get("category", ""),
+            job_type=overrides.get("job_type", Task.JobType.FREELANCE),
             deadline=overrides.get("deadline", timezone.now() + timedelta(days=5)),
             location=overrides.get("location", "Hyderabad"),
+            latitude=overrides.get("latitude"),
+            longitude=overrides.get("longitude"),
             status=overrides.get("status", Task.Status.OPEN),
         )
         return task
@@ -65,6 +69,62 @@ class TaskApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["title"], "Python API")
+
+    def test_worker_can_filter_by_job_type_and_category(self):
+        self.create_task(title="Weekend retail shift", category="Retail", job_type=Task.JobType.WEEKEND)
+        self.create_task(title="Full time engineering", category="Engineering", job_type=Task.JobType.FULL_TIME)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("task-list-create"), {"job_type": Task.JobType.WEEKEND, "category": "retail"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["title"] for item in response.data], ["Weekend retail shift"])
+
+    def test_worker_can_filter_verified_employer_and_sort_by_salary(self):
+        from apps.employers.models import EmployerVerification
+        EmployerVerification.objects.create(employer=self.client_user, legal_name="Verified Co", employer_type="COMPANY", business_address="Hyderabad", contact_phone="9000000000", status=EmployerVerification.Status.VERIFIED)
+        self.create_task(title="Lower salary", budget="100.00")
+        self.create_task(title="Higher salary", budget="500.00")
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("task-list-create"), {"verified": "true", "education": "", "sort": "salary"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["title"], "Higher salary")
+
+    def test_special_job_section_returns_only_its_job_type(self):
+        self.create_task(title="Weekend retail shift", job_type=Task.JobType.WEEKEND)
+        self.create_task(title="Daily helper", job_type=Task.JobType.DAILY_WAGE)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("weekend-jobs"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["title"] for item in response.data], ["Weekend retail shift"])
+
+    def test_worker_can_search_nearby_jobs_by_distance(self):
+        self.create_task(title="Nearby", location="Hyderabad", latitude="17.385044", longitude="78.486671")
+        self.create_task(title="Far away", location="Delhi", latitude="28.613939", longitude="77.209023")
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("task-list-create"), {"latitude": "17.385044", "longitude": "78.486671", "radius_km": "10"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["title"], "Nearby")
+        self.assertIn("distance_km", response.data[0])
+
+    def test_remote_jobs_remain_eligible_in_nearby_search(self):
+        self.create_task(title="Remote role", location="Remote", work_mode=Task.WorkMode.REMOTE, is_remote=True)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("task-list-create"), {"latitude": "17.385044", "longitude": "78.486671", "radius_km": "5"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["title"], "Remote role")
+        self.assertIsNone(response.data[0]["distance_km"])
+
+    def test_end_date_cannot_precede_start_date(self):
+        self.client.force_authenticate(user=self.client_user)
+        payload = {**self.payload, "start_date": "2026-10-20", "end_date": "2026-10-19"}
+        response = self.client.post(reverse("task-list-create"), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("End date cannot be before start date", str(response.data))
+
+    def test_on_site_task_requires_city_and_location(self):
+        self.client.force_authenticate(user=self.client_user)
+        payload = {**self.payload, "work_mode": Task.WorkMode.ONSITE}
+        response = self.client.post(reverse("task-list-create"), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_invalid_state_transition_is_rejected_and_valid_sequence_works(self):
         task = self.create_task()

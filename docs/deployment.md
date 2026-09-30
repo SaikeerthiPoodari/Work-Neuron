@@ -1,33 +1,51 @@
-# WorkNeuron deployment
+# WorkNeuron deployment checklist
 
-## Backend on Render
+This is the deployment checklist for the Django ASGI backend and Vite frontend. A real deployment has not been performed from this workspace; provider credentials and hosting access are required for manual verification.
 
-The repository includes `render.yaml` for a Render web service and PostgreSQL database.
+## Backend
 
-1. Create a Render Blueprint from the GitHub repository.
-2. Set the secret/synchronization values requested by the blueprint:
-   - `DJANGO_SECRET_KEY`
-   - `DJANGO_ALLOWED_HOSTS` with the Render backend hostname
-   - `CORS_ALLOWED_ORIGINS` with the Vercel frontend origin
-   - `CSRF_TRUSTED_ORIGINS` with the Vercel frontend origin
-   - Razorpay TEST MODE keys if payments are demonstrated
-3. Deploy. The build runs migrations and collects static files; Daphne serves the ASGI application.
-4. For live AI matching, select a backend plan with at least 512 MB RAM (1 GB is recommended for predictable model warm-up). Free instances are appropriate for a non-AI preview only.
-5. Pre-download or warm the configured Sentence Transformer model during deployment if the host has sufficient disk/RAM. Matching returns `503` when the model cannot load rather than fabricating scores.
+1. Create PostgreSQL and set `DATABASE_URL` (or the `DB_*` variables). Run `python manage.py migrate` and `python manage.py collectstatic --noinput`.
+2. Set a long random `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`, `DJANGO_ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, and `CSRF_TRUSTED_ORIGINS` to the real HTTPS origins.
+3. Serve ASGI with Daphne: `daphne -b 0.0.0.0 -p $PORT config.asgi:application`.
+4. Set `SECURE_SSL_REDIRECT=True`, secure cookies, HSTS, and HTTPS proxy headers in the hosting environment.
+5. Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` only for Razorpay TEST MODE until live credentials and payment review are available.
+6. Use private object storage for verification documents. Do not expose `MEDIA_ROOT` through a public static route; serve documents only through the authenticated admin endpoint. The local filesystem backend is development-only.
+7. Configure a production Channels layer if WebSockets run across multiple instances. The current in-memory channel layer is not a multi-instance production broker.
+8. Confirm the embedding model can load within the service memory limit. Matching returns an explicit error when unavailable.
+9. Configure `API_ANON_RATE`, `API_USER_RATE`, and `API_SENSITIVE_RATE`; the latter protects voice, reports, verification uploads, and payment endpoints through DRF throttling. Use a shared cache such as Redis for multi-instance rate-limit consistency.
+10. Configure a hosting health probe at `GET /health/`; it checks database connectivity and returns 503 when the database is unavailable.
 
-Render free Postgres databases expire after 30 days and free web services have resource limits. They are suitable for a short academic demo, not permanent hosting.
+## Frontend
 
-Railway can use the same `backend/requirements.txt`, `python manage.py migrate`, `python manage.py collectstatic --noinput`, and `daphne -b 0.0.0.0 -p $PORT config.asgi:application` commands with a PostgreSQL `DATABASE_URL`.
+```powershell
+cd frontend
+npm ci
+npm run build
+```
 
-## Frontend on Vercel
+Deploy `frontend/dist` as an SPA. Set `VITE_API_URL=https://<backend>/api` and `VITE_WS_URL=wss://<backend>/ws/notifications/`. Configure SPA rewrites to `index.html`.
 
-1. Import the repository into Vercel and set the project root to `frontend`.
-2. Use `npm run build` as the build command and `dist` as the output directory.
-3. Set:
-   - `VITE_API_URL=https://<backend-host>/api`
-   - `VITE_WS_URL=wss://<backend-host>/ws/notifications/`
-4. `frontend/vercel.json` provides SPA rewrites for React Router.
+## Verification checklist
 
-## Secrets and test integrations
+- `python manage.py check --deploy`
+- `python manage.py migrate --plan`
+- `python manage.py test`
+- `npm run build`
+- JWT login/refresh and role authorization
+- PostgreSQL migrations and rollback procedure
+- Razorpay TEST order/signature verification
+- Razorpay webhook URL: `https://<backend>/api/payments/webhook/`; configure the provider webhook secret as `RAZORPAY_WEBHOOK_SECRET` and subscribe to captured/authorized/failed payment events.
+- Private verification document access as employer and admin
+- WebSocket notification delivery over `wss://`
+- Leaflet tiles and HTTPS mixed-content policy
+- Static/media storage and backup policy
 
-Never commit `.env` files or credentials. Razorpay remains TEST MODE only. Email, database, JWT, and embedding configuration must be supplied through environment variables. After deployment, verify JWT login, task creation, application acceptance, assignment completion, notification WebSockets, and mocked/test payment verification from the frontend.
+External credentials/manual deployment verification is still required for PostgreSQL hosting, Razorpay, object storage, HTTPS certificates, and production WebSockets.
+
+## Backup and recovery
+
+Use the managed PostgreSQL provider's encrypted automated backups and point-in-time recovery where available. Before launch, document retention, restore ownership, recovery-point objective, recovery-time objective, and perform a non-production restore rehearsal. Local SQLite and local media are development-only and are not a recovery strategy.
+
+## Browser verification boundary
+
+This workspace verifies backend APIs and the Vite build, but does not include a configured Playwright/Cypress runner. Browser microphone permission, keyboard/screen-reader behavior, mobile breakpoints, Leaflet tile loading, WebSocket reconnection, and hosted HTTPS must be manually verified in the target browser/hosting environment.

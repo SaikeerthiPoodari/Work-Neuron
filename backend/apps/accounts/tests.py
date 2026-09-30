@@ -1,4 +1,5 @@
 from django.urls import reverse
+import json
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -6,6 +7,11 @@ from .models import User
 
 
 class AuthenticationApiTests(APITestCase):
+    def test_health_endpoint_reports_database_status(self):
+        response = self.client.get("/health/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content)["status"], "ok")
+
     def test_registration_creates_worker_without_exposing_password(self):
         response = self.client.post(
             reverse("auth-register"),
@@ -55,4 +61,3 @@ class AuthenticationApiTests(APITestCase):
         authenticated = self.client.get(reverse("auth-me"))
         self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
         self.assertEqual(authenticated.data["email"], "client@example.com")
-

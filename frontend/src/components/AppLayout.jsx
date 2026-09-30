@@ -8,7 +8,7 @@ const account = [["/reviews", "reviews", "★"], ["/payments", "payments", "◌"
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
-  const { t } = useI18n();
+  const { t, language, setLanguage, availableLanguages } = useI18n();
   const navigate = useNavigate();
   useEffect(() => {
     const token = localStorage.getItem("workneuron_access");
@@ -24,7 +24,7 @@ export default function AppLayout() {
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
         <button onClick={() => navigate("/")} className="flex items-center gap-2 text-left"><span className="brand-mark">N</span><span className="text-xl font-black tracking-tight text-brand">work<span className="text-ink">neuron</span></span></button>
-        <div className="flex items-center gap-3 text-sm"><div className="hidden text-right sm:block"><p className="font-semibold text-ink">{user.first_name || user.email.split("@")[0]}</p><p className="text-xs text-slate-400">{t(user.role === "WORKER" ? "independentWorker" : user.role === "CLIENT" ? "taskPublisher" : "platformAdmin")}</p></div><span className="avatar">{(user.first_name || user.email)[0].toUpperCase()}</span><button onClick={logout} className="hidden font-semibold text-slate-500 hover:text-ink sm:block">{t("logout")}</button></div>
+        <div className="flex items-center gap-2 text-sm sm:gap-3">{user.role === "WORKER" && <label className="sr-only" htmlFor="interface-language">{t("interfaceLanguage")}</label>}{user.role === "WORKER" && <select id="interface-language" aria-label={t("interfaceLanguage")} className="field mt-0 max-w-[9.5rem] py-2 text-xs sm:max-w-none sm:text-sm" value={language} onChange={(event) => setLanguage(event.target.value)}>{availableLanguages.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select>}<div className="hidden text-right sm:block"><p className="font-semibold text-ink">{user.first_name || user.email.split("@")[0]}</p><p className="text-xs text-slate-400">{t(user.role === "WORKER" ? "independentWorker" : user.role === "CLIENT" ? "taskPublisher" : "platformAdmin")}</p></div><span className="avatar">{(user.first_name || user.email)[0].toUpperCase()}</span><button onClick={logout} className="hidden font-semibold text-slate-500 hover:text-ink sm:block">{t("logout")}</button></div>
       </div>
     </header>
     <div className="mx-auto flex max-w-7xl gap-8 px-5 py-8">

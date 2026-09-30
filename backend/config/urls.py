@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.accounts.views import LoginView, RegisterView, MeView
@@ -32,3 +34,6 @@ urlpatterns = [
     path("api/admin/", include("apps.employers.admin_urls")),
     path("api/analytics/", include("apps.analytics.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

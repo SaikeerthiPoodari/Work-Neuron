@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import MySkillDetailView, MySkillsView, SkillDetailView, SkillGraphView, SkillListCreateView
+from .views import MySkillDetailView, MySkillsView, SkillDetailView, SkillGraphView, SkillListCreateView, WorkerSkillProgressView
 
 
 urlpatterns = [
@@ -9,4 +9,5 @@ urlpatterns = [
     path("mine/", MySkillsView.as_view(), name="my-skills"),
     path("mine/<int:pk>/", MySkillDetailView.as_view(), name="my-skill-detail"),
     path("graph/", SkillGraphView.as_view(), name="skill-graph"),
+    path("progress/", WorkerSkillProgressView.as_view(), name="worker-skill-progress"),
 ]

@@ -4,7 +4,10 @@ import { languages } from "./languages";
 
 const LanguageContext = createContext(null);
 const storageKey = "workneuron_interface_language";
-const interfaceLanguages = languages.filter(({ code }) => messages[code]);
+// Only expose locales explicitly marked as complete for the Worker UI. A few
+// catalogs contain translations for the feed and shell only; offering those
+// would leave entire Worker screens in English. Worker Languages Known stays separate.
+const interfaceLanguages = languages.filter(({ code }) => messages[code]?.workerUiComplete === true);
 
 export function I18nProvider({ children }) {
   const [language, setLanguageState] = useState(() => {
@@ -16,8 +19,6 @@ export function I18nProvider({ children }) {
     if (!interfaceLanguages.some((item) => item.code === code)) return;
     setLanguageState(code);
     localStorage.setItem(storageKey, code);
-    // Keep compatibility with the previous feed-specific preference key.
-    localStorage.setItem("workneuron_task_language", code);
   };
 
   useEffect(() => {

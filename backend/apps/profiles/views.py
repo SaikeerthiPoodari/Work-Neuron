@@ -1,6 +1,7 @@
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import FormParser, MultiPartParser
 
 from apps.accounts.models import User
 
@@ -10,6 +11,7 @@ from .serializers import ClientProfileSerializer, WorkerProfileSerializer
 
 class MyProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, *APIView.parser_classes]
 
     def _profile(self, user):
         if user.role == User.Role.CLIENT:
@@ -25,13 +27,13 @@ class MyProfileView(APIView):
         profile, _ = self._profile(request.user)
         if profile is None:
             return Response({"detail": "Administrators do not have a marketplace profile."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(self._serializer_class(request.user)(profile).data)
+        return Response(self._serializer_class(request.user)(profile, context={"request": request}).data)
 
     def patch(self, request):
         profile, _ = self._profile(request.user)
         if profile is None:
             return Response({"detail": "Administrators do not have a marketplace profile."}, status=status.HTTP_403_FORBIDDEN)
-        serializer = self._serializer_class(request.user)(profile, data=request.data, partial=True)
+        serializer = self._serializer_class(request.user)(profile, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)

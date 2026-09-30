@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import FileExtensionValidator
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -50,6 +51,11 @@ class WorkerProfile(models.Model):
     availability = models.CharField(max_length=20, choices=Availability.choices, default=Availability.FLEXIBLE)
     portfolio_url = models.URLField(blank=True)
     profile_photo_url = models.URLField(blank=True)
+    profile_photo = models.ImageField(
+        upload_to="workers/profile-photos/",
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
+    )
     education = models.CharField(max_length=160, blank=True)
     interests = models.TextField(blank=True)
     languages = models.JSONField(default=list, blank=True)

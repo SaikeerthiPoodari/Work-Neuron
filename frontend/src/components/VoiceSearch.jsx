@@ -16,8 +16,7 @@ export default function VoiceSearch({ onFilters }) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { setError(t("micUnsupported")); return; }
     const recognition = new SpeechRecognition();
-    const supportedLocale = languages.find((item) => item.code === language && item.voiceSearch)?.locale;
-    recognition.lang = supportedLocale || "en-IN";
+    recognition.lang = languages.find((item) => item.code === language)?.locale || "en-IN";
     recognition.interimResults = false; recognition.maxAlternatives = 1;
     recognition.onstart = () => setListening(true);
     recognition.onerror = (event) => { setListening(false); setError(event.error === "not-allowed" ? t("micDenied") : t("voiceError")); };

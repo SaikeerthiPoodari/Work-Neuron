@@ -10,7 +10,7 @@ const jobTypes = [["", "allJobTypes"], ["PART_TIME", "partTime"], ["DAILY_WAGE",
 
 export default function TasksPage() {
   const { user } = useAuth();
-  const { language, setLanguage, availableLanguages, t } = useI18n();
+  const { language, t } = useI18n();
   const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
   const [search, setSearch] = useState("");
@@ -34,7 +34,7 @@ export default function TasksPage() {
   return <div className="space-y-6">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div><p className="text-sm font-semibold text-brand">{user.role === "WORKER" ? t("opportunityFeed") : t("taskManagement")}</p><h1 className="mt-1 text-3xl font-black tracking-tight">{user.role === "WORKER" ? t("findWork") : t("yourTasks")}</h1></div>
-      {user.role === "WORKER" ? <label className="text-sm font-semibold text-slate-600">{t("interfaceLanguage")}<select id="interface-language" className="field mt-1" value={language} onChange={(event) => setLanguage(event.target.value)} aria-label={t("interfaceLanguage")}>{availableLanguages.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label> : <button className="button-primary" onClick={() => setShowForm(!showForm)}>{showForm ? t("closeForm") : t("createTask")}</button>}
+      {user.role !== "WORKER" && <button className="button-primary" onClick={() => setShowForm(!showForm)}>{showForm ? t("closeForm") : t("createTask")}</button>}
     </div>
     {showForm && <CreateTask onCreated={() => { setShowForm(false); load(); }} />}
     {user.role === "WORKER" && <VoiceSearch onFilters={applyVoice} />}

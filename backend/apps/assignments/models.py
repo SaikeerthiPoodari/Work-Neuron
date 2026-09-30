@@ -51,3 +51,17 @@ class AssignmentLevel(models.Model):
 
     def __str__(self):
         return f"{self.assignment} · Level {self.order}: {self.title}"
+
+
+class AssignmentLevelTask(models.Model):
+    level = models.ForeignKey(AssignmentLevel, on_delete=models.CASCADE, related_name="checklist_items")
+    title = models.CharField(max_length=240)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="completed_assignment_tasks")
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.title

@@ -22,7 +22,7 @@ class ComplaintApiTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.post(
             reverse("complaint-list-create"),
-            {"category": "USER", "subject_user": self.subject.id, "description": "Suspicious communication."},
+            {"category": "SUPPORT", "description": "I need help with my WorkNeuron account."},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

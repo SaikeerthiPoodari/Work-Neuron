@@ -19,7 +19,7 @@ class TaskListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Task.objects.select_related("owner").prefetch_related("skills")
+        queryset = Task.objects.select_related("owner", "owner__client_profile").prefetch_related("skills")
         user = self.request.user
         if user.role == User.Role.CLIENT:
             queryset = queryset.filter(owner=user)
@@ -78,7 +78,7 @@ class TaskListCreateView(generics.ListCreateAPIView):
             try:
                 origin_lat, origin_lon = float(latitude), float(longitude)
                 radius = float(request.query_params.get("radius_km", 50))
-                if radius <= 0:
+                if not (-90 <= origin_lat <= 90 and -180 <= origin_lon <= 180) or radius <= 0:
                     raise ValueError
                 nearby = []
                 for task in queryset:
@@ -88,8 +88,13 @@ class TaskListCreateView(generics.ListCreateAPIView):
                         continue
                     if task.latitude is None or task.longitude is None:
                         continue
-                    d_lat, d_lon = radians(float(task.latitude) - origin_lat), radians(float(task.longitude) - origin_lon)
-                    value = sin(d_lat / 2) ** 2 + cos(radians(origin_lat)) * cos(radians(float(task.latitude))) * sin(d_lon / 2) ** 2
+                    task_lat, task_lon = float(task.latitude), float(task.longitude)
+                    # Legacy rows may predate coordinate validators. Ignore invalid map
+                    # locations safely instead of letting malformed data break the feed.
+                    if not (-90 <= task_lat <= 90 and -180 <= task_lon <= 180):
+                        continue
+                    d_lat, d_lon = radians(task_lat - origin_lat), radians(task_lon - origin_lon)
+                    value = sin(d_lat / 2) ** 2 + cos(radians(origin_lat)) * cos(radians(task_lat)) * sin(d_lon / 2) ** 2
                     distance = 6371 * 2 * asin(sqrt(value))
                     if distance <= radius:
                         task.distance_km = round(distance, 2)

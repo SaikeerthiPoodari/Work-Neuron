@@ -32,3 +32,18 @@ class WorkerSkill(models.Model):
     def __str__(self):
         return f"{self.worker.email} - {self.skill.name}"
 
+
+class WorkerSkillHistory(models.Model):
+    """Actual profile snapshots; history begins when a worker changes a skill."""
+    worker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="skill_history")
+    skill = models.ForeignKey(Skill, on_delete=models.PROTECT, related_name="worker_history")
+    proficiency = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    years_experience = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(80)])
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["recorded_at"]
+        indexes = [models.Index(fields=["worker", "recorded_at"])]
+
+    def __str__(self):
+        return f"{self.worker.email} · {self.skill.name} ({self.proficiency}/5)"

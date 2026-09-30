@@ -27,6 +27,9 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
         return queryset.filter(complainant=self.request.user)
 
     def perform_create(self, serializer):
+        if self.request.user.role == User.Role.ADMIN:
+            serializer.save(complainant=self.request.user)
+            return
         complaint = serializer.save(complainant=self.request.user)
         if complaint.category == Complaint.Category.JOB_REPORT:
             from apps.notifications.models import Notification

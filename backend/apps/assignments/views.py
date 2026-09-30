@@ -9,7 +9,7 @@ from apps.accounts.models import User
 from apps.tasks.models import Task
 from apps.tasks.services import transition_task
 
-from .models import Assignment, AssignmentLevel
+from .models import Assignment, AssignmentLevel, AssignmentLevelTask
 from .permissions import IsWorkerRole
 from .serializers import (AssignmentSerializer, AssignmentLevelsConfigSerializer, CompletionSerializer,
                           LevelReviewSerializer, LevelSubmissionSerializer, ProgressSerializer, SubmissionSerializer)
@@ -96,7 +96,9 @@ class AssignmentLevelsConfigView(APIView):
         serializer.is_valid(raise_exception=True)
         assignment.levels.all().delete()
         for index, values in enumerate(serializer.validated_data["levels"], start=1):
-            AssignmentLevel.objects.create(assignment=assignment, order=index, status=AssignmentLevel.Status.CURRENT if index == 1 else AssignmentLevel.Status.LOCKED, **values)
+            tasks = list(dict.fromkeys(task.strip() for task in values.pop("tasks", []) if task.strip()))
+            level = AssignmentLevel.objects.create(assignment=assignment, order=index, status=AssignmentLevel.Status.CURRENT if index == 1 else AssignmentLevel.Status.LOCKED, **values)
+            AssignmentLevelTask.objects.bulk_create([AssignmentLevelTask(level=level, title=title) for title in tasks])
         assignment.progress = 0
         assignment.save(update_fields=["progress", "updated_at"])
         assignment._prefetched_objects_cache.pop("levels", None)
@@ -114,6 +116,8 @@ class AssignmentLevelSubmitView(APIView):
         level = generics.get_object_or_404(AssignmentLevel.objects.select_for_update(), pk=level_id, assignment=assignment)
         if level.status != AssignmentLevel.Status.CURRENT or assignment.task.status not in (Task.Status.IN_PROGRESS, Task.Status.SUBMITTED):
             return Response({"detail": "Only the current level can be submitted while the assignment is in progress."}, status=status.HTTP_400_BAD_REQUEST)
+        if level.checklist_items.filter(is_completed=False).exists():
+            return Response({"detail": "Complete all required checklist tasks before submitting this level."}, status=status.HTTP_400_BAD_REQUEST)
         serializer = LevelSubmissionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if not assignment.levels.filter(order__gt=level.order).exists() and assignment.task.status == Task.Status.IN_PROGRESS:
@@ -132,6 +136,27 @@ class AssignmentLevelSubmitView(APIView):
         from apps.notifications.models import Notification
         from apps.notifications.services import create_notification
         create_notification(assignment.task.owner, Notification.Kind.TASK_SUBMITTED, "Assignment level submitted", f"Level {level.order} was submitted for {assignment.task.title}.", f"/assignments/{assignment.id}")
+        return Response(AssignmentSerializer(assignment).data)
+
+
+class AssignmentLevelTaskCompleteView(APIView):
+    permission_classes = [IsWorkerRole]
+
+    @transaction.atomic
+    def post(self, request, pk, level_id, task_id):
+        assignment = generics.get_object_or_404(Assignment.objects.select_for_update().select_related("task").prefetch_related("levels__checklist_items"), pk=pk)
+        if assignment.worker_id != request.user.id:
+            return Response({"detail": "Only the assigned worker can complete checklist tasks."}, status=status.HTTP_403_FORBIDDEN)
+        level = generics.get_object_or_404(AssignmentLevel.objects.select_for_update(), pk=level_id, assignment=assignment)
+        if level.status != AssignmentLevel.Status.CURRENT:
+            return Response({"detail": "Only checklist tasks in the current level can be completed."}, status=status.HTTP_400_BAD_REQUEST)
+        item = generics.get_object_or_404(AssignmentLevelTask.objects.select_for_update(), pk=task_id, level=level)
+        if not item.is_completed:
+            item.is_completed = True
+            item.completed_at = timezone.now()
+            item.completed_by = request.user
+            item.save(update_fields=["is_completed", "completed_at", "completed_by"])
+        assignment._prefetched_objects_cache.pop("levels", None)
         return Response(AssignmentSerializer(assignment).data)
 
 

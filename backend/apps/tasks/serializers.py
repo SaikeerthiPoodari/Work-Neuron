@@ -10,6 +10,7 @@ from .models import Task, TaskSkill
 
 class TaskSerializer(serializers.ModelSerializer):
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
+    client_name = serializers.SerializerMethodField()
     required_skills = SkillSerializer(source="skills", many=True, read_only=True)
     employer_verification = serializers.SerializerMethodField()
     skill_ids = serializers.PrimaryKeyRelatedField(
@@ -19,7 +20,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = (
-            "id", "owner_email", "employer_verification", "title", "description", "required_skills", "skill_ids", "budget", "category",
+            "id", "owner_email", "client_name", "employer_verification", "title", "description", "required_skills", "skill_ids", "budget", "category",
             "job_type", "salary_type", "education_requirement", "experience_requirement", "working_hours",
             "start_date", "end_date", "deadline", "location", "location_address", "location_city", "location_area", "location_state", "location_description", "latitude", "longitude", "is_remote", "work_mode", "availability_requirements", "status", "created_at", "updated_at",
         )
@@ -30,6 +31,12 @@ class TaskSerializer(serializers.ModelSerializer):
         if verification is None:
             return {"status": EmployerVerification.Status.UNVERIFIED, "badge_text": ""}
         return {"status": verification.status, "badge_text": verification.badge_text, "employer_type": verification.employer_type}
+
+    def get_client_name(self, obj):
+        profile = getattr(obj.owner, "client_profile", None)
+        if profile and profile.organization_name:
+            return profile.organization_name
+        return " ".join(filter(None, [obj.owner.first_name, obj.owner.last_name])) or obj.owner.email
 
     def validate_title(self, value):
         if not value.strip():

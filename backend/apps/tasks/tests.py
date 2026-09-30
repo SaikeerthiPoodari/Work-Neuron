@@ -105,6 +105,22 @@ class TaskApiTests(APITestCase):
         self.assertEqual(response.data[0]["title"], "Nearby")
         self.assertIn("distance_km", response.data[0])
 
+    def test_nearby_search_returns_each_valid_job_coordinate(self):
+        expected = {
+            "West": ("17.385044", "78.486671"),
+            "North": ("17.410000", "78.490000"),
+            "South": ("17.360000", "78.470000"),
+        }
+        for title, (latitude, longitude) in expected.items():
+            self.create_task(title=title, latitude=latitude, longitude=longitude)
+        # A legacy invalid location should be skipped without affecting valid rows.
+        self.create_task(title="Invalid legacy coordinate", latitude="95.000000", longitude="78.000000")
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("task-list-create"), {"latitude": "17.385044", "longitude": "78.486671", "radius_km": "10"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual({item["title"] for item in response.data}, set(expected))
+        self.assertTrue(all(item["latitude"] and item["longitude"] and item["distance_km"] is not None for item in response.data))
+
     def test_remote_jobs_remain_eligible_in_nearby_search(self):
         self.create_task(title="Remote role", location="Remote", work_mode=Task.WorkMode.REMOTE, is_remote=True)
         self.client.force_authenticate(user=self.worker)

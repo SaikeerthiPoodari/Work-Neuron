@@ -1,12 +1,19 @@
 from rest_framework import serializers
 
-from .models import Assignment, AssignmentLevel
+from .models import Assignment, AssignmentLevel, AssignmentLevelTask
+
+
+class AssignmentLevelTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssignmentLevelTask
+        fields = ("id", "title", "is_completed", "completed_at")
 
 
 class AssignmentLevelSerializer(serializers.ModelSerializer):
+    tasks = AssignmentLevelTaskSerializer(source="checklist_items", many=True, read_only=True)
     class Meta:
         model = AssignmentLevel
-        fields = ("id", "order", "title", "description", "requirements", "status", "submission", "feedback", "submitted_at", "reviewed_at")
+        fields = ("id", "order", "title", "description", "requirements", "status", "submission", "feedback", "submitted_at", "reviewed_at", "tasks")
         read_only_fields = ("id", "status", "submission", "feedback", "submitted_at", "reviewed_at")
 
 
@@ -14,6 +21,7 @@ class AssignmentLevelInputSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=180)
     description = serializers.CharField(required=False, allow_blank=True)
     requirements = serializers.CharField(required=False, allow_blank=True)
+    tasks = serializers.ListField(child=serializers.CharField(max_length=240, trim_whitespace=True), required=False, allow_empty=True, max_length=30)
 
 
 class AssignmentLevelsConfigSerializer(serializers.Serializer):

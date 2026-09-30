@@ -1,4 +1,5 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
 
 from .models import Review
 from .serializers import ReviewSerializer
@@ -9,9 +10,15 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return (Review.objects.select_related("reviewer", "reviewed_user", "assignment__task")
-                .filter(reviewer=self.request.user) | Review.objects.select_related("reviewer", "reviewed_user", "assignment__task")
-                .filter(reviewed_user=self.request.user))
+        queryset = Review.objects.select_related("reviewer", "reviewed_user", "assignment__task", "assignment__task__owner")
+        if getattr(self.request.user, "role", "") == "WORKER":
+            return queryset.filter(reviewed_user=self.request.user, reviewer__role="CLIENT")
+        return queryset.filter(reviewer=self.request.user) | queryset.filter(reviewed_user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role == "WORKER":
+            return Response({"detail": "Workers can view reviews they receive but cannot create reviews."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         review = serializer.save()

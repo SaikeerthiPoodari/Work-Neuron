@@ -29,7 +29,7 @@ class ReviewApiTests(APITestCase):
         application = Application.objects.create(task=self.task, worker=self.worker, cover_letter="Done", status=Application.Status.ACCEPTED)
         self.assignment = Assignment.objects.create(task=self.task, worker=self.worker, application=application, progress=100)
 
-    def test_both_parties_can_review_once_and_reputation_updates(self):
+    def test_client_review_updates_worker_reputation_and_worker_can_only_view(self):
         self.client.force_authenticate(user=self.client_user)
         client_review = self.client.post(
             reverse("review-list-create"),
@@ -48,9 +48,12 @@ class ReviewApiTests(APITestCase):
         worker_review = self.client.post(
             reverse("review-list-create"), {"assignment": self.assignment.id, "rating": 4, "review": "Clear requirements."}, format="json"
         )
-        self.assertEqual(worker_review.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(worker_review.data["reviewed_user_email"], self.client_user.email)
-        self.assertEqual(Review.objects.filter(assignment=self.assignment).count(), 2)
+        self.assertEqual(worker_review.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Review.objects.filter(assignment=self.assignment).count(), 1)
+        received_reviews = self.client.get(reverse("review-list-create"))
+        self.assertEqual(received_reviews.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(received_reviews.data), 1)
+        self.assertEqual(received_reviews.data[0]["client_name"], self.client_user.email)
 
         reputation = self.client.get(reverse("my-reputation"))
         self.assertEqual(reputation.status_code, status.HTTP_200_OK)
@@ -69,5 +72,4 @@ class ReviewApiTests(APITestCase):
         self.task.save(update_fields=["status"])
         self.client.force_authenticate(user=self.outsider)
         unauthorized = self.client.post(reverse("review-list-create"), {"assignment": self.assignment.id, "rating": 5}, format="json")
-        self.assertEqual(unauthorized.status_code, status.HTTP_400_BAD_REQUEST)
-
+        self.assertEqual(unauthorized.status_code, status.HTTP_403_FORBIDDEN)

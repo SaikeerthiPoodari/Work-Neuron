@@ -18,6 +18,7 @@ class Complaint(models.Model):
         APPLICATION = "APPLICATION", "Application"
         ASSIGNMENT = "ASSIGNMENT", "Assignment"
         PAYMENT = "PAYMENT", "Payment"
+        SUPPORT = "SUPPORT", "Support request"
         JOB_REPORT = "JOB_REPORT", "Suspicious job report"
 
     class Status(models.TextChoices):

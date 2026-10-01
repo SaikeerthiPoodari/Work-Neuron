@@ -37,6 +37,8 @@ class AssignmentLevel(models.Model):
     order = models.PositiveSmallIntegerField()
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)
+    deliverables = models.TextField(blank=True)
+    required_materials = models.TextField(blank=True)
     requirements = models.TextField(blank=True)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.LOCKED)
     submission = models.TextField(blank=True)

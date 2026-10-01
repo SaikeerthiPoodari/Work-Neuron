@@ -55,6 +55,27 @@ class TaskApiTests(APITestCase):
         self.assertEqual(response.data["status"], Task.Status.OPEN)
         self.assertEqual(len(response.data["required_skills"]), 2)
 
+    def test_job_location_level_and_language_metadata_round_trips_through_api(self):
+        self.client.force_authenticate(user=self.client_user)
+        payload = {
+            **self.payload,
+            "location": "Gachibowli, Hyderabad",
+            "location_city": "Hyderabad",
+            "location_area": "Gachibowli",
+            "location_state": "Telangana",
+            "latitude": "17.440100",
+            "longitude": "78.348900",
+            "skill_level": Task.SkillLevel.LEVEL_2,
+            "required_languages": ["te", "en"],
+        }
+        response = self.client.post(reverse("task-list-create"), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["location_city"], "Hyderabad")
+        self.assertEqual(response.data["location_area"], "Gachibowli")
+        self.assertEqual(response.data["location_state"], "Telangana")
+        self.assertEqual(response.data["skill_level"], Task.SkillLevel.LEVEL_2)
+        self.assertEqual(response.data["required_languages"], ["te", "en"])
+
     def test_only_clients_can_create_tasks(self):
         self.client.force_authenticate(user=self.worker)
         response = self.client.post(reverse("task-list-create"), self.payload, format="json")

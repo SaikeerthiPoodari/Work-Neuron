@@ -20,7 +20,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = (
-            "id", "owner_email", "client_name", "employer_verification", "title", "description", "required_skills", "skill_ids", "budget", "category",
+            "id", "owner_email", "client_name", "employer_verification", "title", "description", "required_skills", "skill_ids", "budget", "category", "skill_level", "required_languages",
             "job_type", "salary_type", "education_requirement", "experience_requirement", "working_hours",
             "start_date", "end_date", "deadline", "location", "location_address", "location_city", "location_area", "location_state", "location_description", "latitude", "longitude", "is_remote", "work_mode", "availability_requirements", "status", "created_at", "updated_at",
         )

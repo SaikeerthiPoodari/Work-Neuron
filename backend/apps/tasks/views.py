@@ -31,6 +31,8 @@ class TaskListCreateView(generics.ListCreateAPIView):
         if search:
             queryset = queryset.filter(
                 Q(title__icontains=search) | Q(description__icontains=search) | Q(location__icontains=search)
+                | Q(location_city__icontains=search) | Q(location_area__icontains=search)
+                | Q(location_state__icontains=search) | Q(category__icontains=search)
             )
         if params.get("status") and user.role == User.Role.ADMIN:
             queryset = queryset.filter(status=params["status"])

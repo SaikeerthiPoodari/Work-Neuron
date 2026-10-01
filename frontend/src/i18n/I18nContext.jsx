@@ -4,10 +4,9 @@ import { languages } from "./languages";
 
 const LanguageContext = createContext(null);
 const storageKey = "workneuron_interface_language";
-// Only expose locales explicitly marked as complete for the Worker UI. A few
-// catalogs contain translations for the feed and shell only; offering those
-// would leave entire Worker screens in English. Worker Languages Known stays separate.
-const interfaceLanguages = languages.filter(({ code }) => messages[code]?.workerUiComplete === true);
+// Every locale in the Indian language registry is available to the interface.
+// Existing catalogs are used where present; missing entries fall back to English.
+const interfaceLanguages = languages;
 
 export function I18nProvider({ children }) {
   const [language, setLanguageState] = useState(() => {

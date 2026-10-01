@@ -10,6 +10,7 @@ from apps.accounts.models import User
 from apps.profiles.models import WorkerProfile
 from apps.skills.models import Skill, WorkerSkill
 from apps.tasks.models import Task, TaskSkill
+from ai_engine.embeddings.service import EmbeddingUnavailableError
 from ai_engine.matching.scoring import score_worker_for_task, _worker_text
 
 
@@ -56,6 +57,24 @@ class MatchingEngineTests(APITestCase):
         self.assertEqual(result["job_type_score"], 100.0)
         self.assertEqual(result["salary_score"], 100.0)
         self.assertIn("education", result["weights"])
+
+    @patch("ai_engine.matching.scoring._semantic_score", side_effect=EmbeddingUnavailableError("model is not cached"))
+    def test_score_falls_back_to_structured_signals_when_semantic_model_is_unavailable(self, _semantic_mock):
+        client_user = User.objects.create_user(email="fallback-client@example.com", password="secure-pass-123", role=User.Role.CLIENT)
+        worker = User.objects.create_user(email="fallback-worker@example.com", password="secure-pass-123", role=User.Role.WORKER)
+        task = Task.objects.create(
+            owner=client_user,
+            title="Structured match",
+            description="This is enough data for structured scoring.",
+            budget="1000.00",
+            deadline=timezone.now() + timedelta(days=5),
+        )
+
+        result = score_worker_for_task(task, worker)
+
+        self.assertEqual(result["semantic_score"], 50.0)
+        self.assertGreater(result["overall_score"], 0)
+        self.assertIn("Semantic model unavailable", result["explanation"])
 
 
 class MatchingApiTests(APITestCase):

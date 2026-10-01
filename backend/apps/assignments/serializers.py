@@ -13,15 +13,17 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
     tasks = AssignmentLevelTaskSerializer(source="checklist_items", many=True, read_only=True)
     class Meta:
         model = AssignmentLevel
-        fields = ("id", "order", "title", "description", "requirements", "status", "submission", "feedback", "submitted_at", "reviewed_at", "tasks")
+        fields = ("id", "order", "title", "description", "deliverables", "required_materials", "requirements", "status", "submission", "feedback", "submitted_at", "reviewed_at", "tasks")
         read_only_fields = ("id", "status", "submission", "feedback", "submitted_at", "reviewed_at")
 
 
 class AssignmentLevelInputSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=180)
-    description = serializers.CharField(required=False, allow_blank=True)
-    requirements = serializers.CharField(required=False, allow_blank=True)
-    tasks = serializers.ListField(child=serializers.CharField(max_length=240, trim_whitespace=True), required=False, allow_empty=True, max_length=30)
+    description = serializers.CharField()
+    deliverables = serializers.CharField()
+    required_materials = serializers.CharField()
+    requirements = serializers.CharField()
+    tasks = serializers.ListField(child=serializers.CharField(max_length=240, trim_whitespace=True), min_length=1, max_length=30)
 
 
 class AssignmentLevelsConfigSerializer(serializers.Serializer):
@@ -33,7 +35,7 @@ class LevelSubmissionSerializer(serializers.Serializer):
 
 
 class LevelReviewSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=("approve", "changes"))
+    action = serializers.ChoiceField(choices=("approve", "reject", "changes"))
     feedback = serializers.CharField(required=False, allow_blank=True)
 
 

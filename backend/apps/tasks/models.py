@@ -6,6 +6,10 @@ from apps.skills.models import Skill
 
 
 class Task(models.Model):
+    class SkillLevel(models.TextChoices):
+        LEVEL_1 = "LEVEL_1", "Level 1"
+        LEVEL_2 = "LEVEL_2", "Level 2"
+        LEVEL_3 = "LEVEL_3", "Level 3"
     class WorkMode(models.TextChoices):
         REMOTE = "REMOTE", "Remote"
         ONSITE = "ONSITE", "On-site"
@@ -44,6 +48,8 @@ class Task(models.Model):
     description = models.TextField()
     budget = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     category = models.CharField(max_length=80, blank=True)
+    skill_level = models.CharField(max_length=10, choices=SkillLevel.choices, default=SkillLevel.LEVEL_1)
+    required_languages = models.JSONField(default=list, blank=True)
     job_type = models.CharField(max_length=20, choices=JobType.choices, default=JobType.FREELANCE)
     salary_type = models.CharField(max_length=20, choices=SalaryType.choices, default=SalaryType.FIXED)
     education_requirement = models.CharField(max_length=160, blank=True)

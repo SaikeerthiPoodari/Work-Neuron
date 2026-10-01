@@ -175,7 +175,7 @@ class AssignmentLevelReviewView(APIView):
         serializer.is_valid(raise_exception=True)
         level.feedback = serializer.validated_data.get("feedback", "")
         level.reviewed_at = timezone.now()
-        if serializer.validated_data["action"] == "changes":
+        if serializer.validated_data["action"] in ("reject", "changes"):
             level.status = AssignmentLevel.Status.CURRENT
         else:
             level.status = AssignmentLevel.Status.COMPLETED

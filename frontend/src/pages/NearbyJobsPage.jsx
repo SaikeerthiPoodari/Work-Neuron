@@ -4,8 +4,10 @@ import { get } from "../services/api";
 import JobMap, { hasCoordinates } from "../components/JobMap";
 import { EmptyState, ErrorMessage } from "../components/StatusMessage";
 import { useI18n } from "../i18n/I18nContext";
+import { useAuth } from "../context/AuthContext";
 
 export default function NearbyJobsPage() {
+  const { user } = useAuth();
   const { t } = useI18n();
   const [coords, setCoords] = useState(null);
   const [radius, setRadius] = useState(25);
@@ -16,11 +18,23 @@ export default function NearbyJobsPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const useSavedLocation = async () => {
+    if (user?.role !== "WORKER") { setError(t("locationUnavailable")); return; }
+    try {
+      const profile = await get("/profiles/me/");
+      const latitude = Number(profile.latitude);
+      const longitude = Number(profile.longitude);
+      if (profile.latitude != null && profile.longitude != null && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        setCoords([latitude, longitude]);
+        setError("");
+      } else setError(t("locationUnavailable"));
+    } catch { setError(t("locationUnavailable")); }
+  };
   const locate = () => {
-    if (!navigator.geolocation) { setError(t("locationUnavailable")); return; }
+    if (!navigator.geolocation) { useSavedLocation(); return; }
     navigator.geolocation.getCurrentPosition(
       (position) => { setCoords([position.coords.latitude, position.coords.longitude]); setError(""); },
-      () => setError(t("locationDenied")),
+      useSavedLocation,
     );
   };
   useEffect(() => { locate(); }, []);

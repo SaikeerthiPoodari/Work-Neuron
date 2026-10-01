@@ -23,7 +23,13 @@ def task_summary(task):
         "deadline": task.deadline,
         "location": task.location,
         "location_city": task.location_city,
+        "location_area": task.location_area,
+        "location_state": task.location_state,
+        "latitude": task.latitude,
+        "longitude": task.longitude,
         "category": task.category,
+        "skill_level": task.skill_level,
+        "required_languages": task.required_languages,
         "job_type": task.job_type,
         "work_mode": task.work_mode,
         "working_hours": task.working_hours,
@@ -55,6 +61,14 @@ class SmartTaskFeedView(APIView):
         limit = min(max(int(request.query_params.get("limit", 20)), 1), 50)
         SearchEvent.objects.create(user=request.user, kind=SearchEvent.Kind.RECOMMENDATION)
         tasks = Task.objects.filter(status__in=[Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED]).exclude(owner=request.user).prefetch_related("skills")
+        job_type = request.query_params.get("job_type")
+        if job_type:
+            valid_job_types = {choice for choice, _label in Task.JobType.choices}
+            if job_type not in valid_job_types:
+                return Response({"detail": "Select a valid job type."}, status=status.HTTP_400_BAD_REQUEST)
+            tasks = tasks.filter(job_type=job_type)
+        if request.query_params.get("category"):
+            tasks = tasks.filter(category__iexact=request.query_params["category"].strip())
         if request.query_params.get("skill"):
             tasks = tasks.filter(skills__id=request.query_params["skill"])
         if request.query_params.get("location"):

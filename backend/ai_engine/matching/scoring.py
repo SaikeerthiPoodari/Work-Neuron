@@ -6,7 +6,7 @@ from math import asin, cos, radians, sin, sqrt
 
 from sklearn.metrics.pairwise import cosine_similarity
 
-from ai_engine.embeddings.service import SentenceEmbeddingService
+from ai_engine.embeddings.service import EmbeddingUnavailableError, SentenceEmbeddingService
 from apps.profiles.languages import LANGUAGE_LABELS
 
 
@@ -150,7 +150,14 @@ def _structured_scores(task, worker):
 def score_worker_for_task(task, worker, embedder=None):
     embedder = embedder or SentenceEmbeddingService()
     components = _structured_scores(task, worker)
-    components["semantic"] = _semantic_score(_task_text(task), _worker_text(worker), embedder)
+    semantic_available = True
+    try:
+        components["semantic"] = _semantic_score(_task_text(task), _worker_text(worker), embedder)
+    except EmbeddingUnavailableError:
+        # Keep recommendations available using the existing structured signals
+        # when the optional local semantic model is not installed.
+        components["semantic"] = 50.0
+        semantic_available = False
     weights = matching_weights()
     overall = sum(components[key] * weights[key] for key in weights)
     required_names = {name.lower() for name in task.skills.values_list("name", flat=True)}
@@ -178,6 +185,8 @@ def score_worker_for_task(task, worker, embedder=None):
         explanation = "Strong semantic similarity between the worker profile and task requirements."
     else:
         explanation = "Partial match; review the component scores before selecting this worker."
+    if not semantic_available:
+        explanation = f"{explanation} Semantic model unavailable; ranked using profile and job factors."
     return {
         "overall_score": round(overall, 2),
         "skill_score": round(components["skill"], 2),

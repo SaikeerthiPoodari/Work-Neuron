@@ -159,6 +159,10 @@ SIMPLE_JWT = {
 }
 
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if origin.strip()]
+# Vite may select a different free port when its default port is already busy.
+# Allow browser requests from loopback development origins without opening CORS
+# to other hosts or changing the configured production allowlist.
+CORS_ALLOWED_ORIGIN_REGEXES = [r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"] if DEBUG else []
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@workneuron.local")
 

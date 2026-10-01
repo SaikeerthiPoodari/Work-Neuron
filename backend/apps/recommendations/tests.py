@@ -42,10 +42,41 @@ class RecommendationApiTests(APITestCase):
         self.task.job_type = "PART_TIME"
         self.task.category = "Software"
         self.task.save(update_fields=["job_type", "category"])
+        other = Task.objects.create(
+            owner=self.client_user,
+            title="Full-time task",
+            description="Must not match part-time filter.",
+            budget="900.00",
+            deadline=timezone.now() + timedelta(days=5),
+            job_type=Task.JobType.FULL_TIME,
+            category="Software",
+        )
         self.client.force_authenticate(user=self.worker)
         response = self.client.get(reverse("job-recommendations"), {"job_type": "PART_TIME", "category": "software"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]["task"]["title"], "Feed task")
+        self.assertEqual(len(response.data), 1)
+        self.assertNotEqual(response.data[0]["task"]["id"], other.id)
+
+    @patch("apps.recommendations.views.score_task_for_worker")
+    def test_worker_job_recommendations_support_verified_filter(self, score_mock):
+        from apps.employers.models import EmployerVerification
+
+        score_mock.return_value = {"overall_score": 91.0, "explanation": "Matches your preferences."}
+        EmployerVerification.objects.create(
+            employer=self.client_user,
+            legal_name="Verified Client",
+            business_name="Verified Client",
+            employer_type="COMPANY",
+            business_address="Hyderabad",
+            contact_phone="+910000000000",
+            status=EmployerVerification.Status.VERIFIED,
+        )
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("job-recommendations"), {"verified": "true"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["task"]["id"], self.task.id)
 
     def test_client_cannot_use_job_recommendations(self):
         self.client.force_authenticate(user=self.client_user)

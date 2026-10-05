@@ -3,14 +3,15 @@ import { useAuth } from "../context/AuthContext";
 import { get, post } from "../services/api";
 import { EmptyState, ErrorMessage } from "../components/StatusMessage";
 import { useI18n } from "../i18n/I18nContext";
+import ClientComplaintsPage from "./ClientComplaintsPage";
 
 const faqs = [["faqAssignment", "faqAssignmentAnswer"], ["faqPayment", "faqPaymentAnswer"], ["faqIssue", "faqIssueAnswer"]];
 
-export default function ComplaintsPage() {
-  const { user } = useAuth(); const { t } = useI18n(); const worker = user.role === "WORKER";
+function WorkerSupportPage() {
+  const { t } = useI18n(); const worker = true;
   const [items, setItems] = useState([]); const [assignments, setAssignments] = useState([]); const [form, setForm] = useState({ category: worker ? "SUPPORT" : "USER", description: "" }); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const [sending, setSending] = useState(false);
   const load = async () => { setLoading(true); setError(""); try { const requests = [get("/complaints/")]; if (worker) requests.push(get("/assignments/")); const [tickets, ownedAssignments] = await Promise.all(requests); setItems(tickets); if (ownedAssignments) setAssignments(ownedAssignments); } catch (err) { setError(err.message); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, [user.role]);
+  useEffect(() => { load(); }, []);
   const submit = async (event) => { event.preventDefault(); setSending(true); setError(""); try { await post("/complaints/", form); setForm({ category: worker ? "SUPPORT" : "USER", description: "" }); await load(); } catch (err) { setError(err.message); } finally { setSending(false); } };
   return <div className="space-y-6"><header><p className="text-sm font-semibold text-brand">{worker ? t("support") : "Help and safety"}</p><h1 className="mt-1 text-3xl font-black tracking-tight">{worker ? t("workerSupport") : "Complaints"}</h1><p className="mt-2 text-slate-500">{worker ? t("ticketDescription") : "Report a concern and follow its status."}</p></header>
     <ErrorMessage message={error} />
@@ -18,12 +19,12 @@ export default function ComplaintsPage() {
     <form onSubmit={submit} className="card space-y-4"><div><h2 className="text-lg font-black">{worker ? t("raiseTicket") : "Submit a complaint"}</h2><p className="mt-1 text-sm text-slate-500">{worker ? t("ticketDescription") : "Share enough information for the team to review your report."}</p></div>{worker ? <label className="block"><span className="label">{t("relatedAssignment")}</span><select className="field" value={form.assignment || ""} onChange={(event) => setForm({ ...form, assignment: event.target.value || null })}><option value="">{t("noAssignment")}</option>{assignments.map((item) => <option key={item.id} value={item.id}>{item.task_title}</option>)}</select></label> : <div><label className="label">Category</label><select className="field" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{["USER", "TASK", "APPLICATION", "ASSIGNMENT", "PAYMENT", "JOB_REPORT"].map((category) => <option key={category}>{category}</option>)}</select></div>}<div><label className="label" htmlFor="support-description">{worker ? t("howHelp") : "Description"}</label><textarea id="support-description" required minLength={10} className="field" rows="4" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder={worker ? t("ticketDescription") : "Describe your concern…"} /></div><button className="button-primary" disabled={sending}>{sending ? "Submitting…" : worker ? t("submitTicket") : "Submit complaint"}</button></form>
     <section><div className="mb-3 flex items-end justify-between"><div><h2 className="text-xl font-black">{worker ? t("myTickets") : "My complaints"}</h2><p className="mt-1 text-sm text-slate-500">{worker ? t("trackTickets") : "Track the latest status and response for each request."}</p></div><button className="button-secondary text-sm" onClick={load} disabled={loading}>{worker ? t("refresh") : "Refresh"}</button></div>{loading ? <div className="card text-sm text-slate-500" role="status">{worker ? t("loadingTickets") : "Loading tickets…"}</div> : items.length ? <div className="space-y-3">{items.map((item) => <article className="card" key={item.id}><div className="flex flex-wrap justify-between gap-2"><span className="font-bold">{worker ? t("ticket") : "Complaint"} #{item.id} · {item.category}</span><span className={`rounded-full px-2.5 py-1 text-xs font-black ${item.status === "RESOLVED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{item.status.replaceAll("_", " ")}</span></div>{item.assignment && <p className="mt-2 text-xs font-semibold text-brand">{t("yourAssignment")} #{item.assignment}</p>}<p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.description}</p>{item.resolution_notes && <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong>{t("supportResponse")}</strong><p className="mt-1">{item.resolution_notes}</p></div>}<p className="mt-3 text-xs text-slate-400">{t("submitted")} {new Date(item.created_at).toLocaleString()} · {t("updated")} {new Date(item.updated_at).toLocaleString()}</p></article>)}</div> : <EmptyState>{worker ? t("ticketEmpty") : "No complaints filed."}</EmptyState>}</section>
   </div>;
-import { useAuth } from "../context/AuthContext";
-import ClientComplaintsPage from "./ClientComplaintsPage";
+}
 
 export default function ComplaintsPage() {
 	const { user } = useAuth();
-	return user.role === "CLIENT" ? <ClientComplaintsPage /> : <DefaultComplaintsPage />;
+	if (user.role === "CLIENT") return <ClientComplaintsPage />;
+	return user.role === "WORKER" ? <WorkerSupportPage /> : <DefaultComplaintsPage />;
 }
 
 function DefaultComplaintsPage() {

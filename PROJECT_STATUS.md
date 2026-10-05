@@ -1,29 +1,5 @@
 # WorkNeuron Project Status
 
-## Client portal enhancement update — 2026-10-01
-
-- **IMPLEMENTED:** Protected worker directory search with name, skill, location, availability, and safe profile fields.
-- **IMPLEMENTED:** Client analytics, payment detail access, password/account settings, mark-all notifications, and mobile-visible client navigation.
-- **IMPLEMENTED:** Draft job creation/publishing with backend status transitions and migration coverage.
-- **IMPLEMENTED:** Job-scoped messaging and interview scheduling API contracts with ownership/application validation; the client communication page exposes authorized message history and interview records.
-- **CONFIGURATION REQUIRED:** Live payment settlement, messaging delivery notifications, and production WebSocket/shared broker behavior still require hosted provider infrastructure.
-
-## Global AI assistant and theme — 2026-10-01
-
-- **IMPLEMENTED:** A single authenticated, reusable **Nora — Your WorkNeuron AI Assistant** is mounted in the shared `AppLayout`, persists while navigating, supports role-aware suggestions/actions, current-page context, loading/error states, clear/minimize controls, mobile layout, and keyboard-accessible controls.
-- **IMPLEMENTED:** `POST /api/ai/assistant/` is protected by JWT authentication and sensitive throttling. Backend responses use the authenticated user role and authorized task querysets; client-supplied role context is ignored.
-- **IMPLEMENTED:** Existing task/job data is used for worker job questions. The assistant does not invent records or expose admin/client/worker-private data.
-- **IMPLEMENTED:** Global light/dark theme provider, semantic CSS variables, persisted `workneuron-theme` preference, auth-page toggle, authenticated header toggle, and dark-aware assistant UI.
-- **CONFIGURATION REQUIRED:** An external generative provider can be added behind `AssistantProvider` using `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL`. The current fallback mode remains fully operational without credentials.
-- **BLOCKED EXTERNALLY:** No external AI provider is claimed operational until credentials and provider integration are supplied. Browser-level device/accessibility verification remains a deployment validation task.
-- **Verification:** Full backend suite passed with 103 tests; Django system checks passed; frontend production build passed.
-
-## Client portal continuation — 2026-09-30
-
-Extended the existing `CLIENT` experience without adding another application, login, backend model, or duplicate API. The role-aware dashboard now uses task, assignment, employer payment summary/history, application, review, notification, and worker-recommendation endpoints. The shared task route now includes a client-only job-management view with multi-step create/edit, the backend-supported job requirements/salary/location/schedule fields, status filters, close action, and one-shot geolocation. A client-only applications route uses the existing comparison and decision APIs, and client complaints now include a valid owned task/application/assignment/payment reference. Client mobile navigation exposes the full client menu.
-
-See [CLIENT_IMPLEMENTATION_STATUS.md](CLIENT_IMPLEMENTATION_STATUS.md) for the feature-by-feature status and API contract boundaries. Verification after this continuation: 99 backend tests passed, Django checks and migration drift check passed, Python and frontend production dependency audits passed, frontend production build passed, and client flows were browser-smoke-tested against local Django/Daphne services.
-
 ## Continuation brief audit — 2026-09-20
 
 This audit was completed before extending the product for the continuation brief. It distinguishes existing working functionality from the new requirements; no existing module is being replaced as part of the audit.

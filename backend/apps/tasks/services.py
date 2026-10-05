@@ -4,7 +4,6 @@ from .models import Task
 
 
 ALLOWED_TRANSITIONS = {
-    Task.Status.DRAFT: {Task.Status.OPEN, Task.Status.CANCELLED},
     Task.Status.OPEN: {Task.Status.APPLICATIONS_RECEIVED, Task.Status.CANCELLED},
     Task.Status.APPLICATIONS_RECEIVED: {Task.Status.ASSIGNED, Task.Status.CANCELLED},
     Task.Status.ASSIGNED: {Task.Status.IN_PROGRESS, Task.Status.CANCELLED},

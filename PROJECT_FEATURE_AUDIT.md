@@ -1,16 +1,5 @@
 # WorkNeuron Feature Audit
 
-## Global AI assistant and theme update — 2026-10-01
-
-| Feature | Status | Evidence / boundary |
-|---|---|---|
-| Nora — Your WorkNeuron AI Assistant | IMPLEMENTED | Shared `AIAssistant` in `AppLayout`, `/api/ai/assistant/`, authenticated role context, live authorized task lookup, navigation actions, fallback/error/loading UX |
-| External AI provider | CONFIGURATION REQUIRED | `AssistantProvider` boundary and `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL` environment settings exist; no external provider is claimed operational without credentials |
-| Assistant security | IMPLEMENTED | JWT authentication, sensitive throttling, server-derived role, existing task queryset authorization, no secrets or exact private coordinates sent to a model |
-| Global light/dark theme | IMPLEMENTED | `ThemeProvider`, semantic tokens, persisted local-storage preference, initial no-flash script, auth and authenticated toggles, assistant dark-mode styling |
-| Browser/device validation | BLOCKED EXTERNALLY | Production browser, screen-reader, mobile keyboard, and external provider checks still require deployment/device access |
-
-
 Audit basis: `WorkNeuron_Complete_Features_Implementation_Specification (1).pdf`, the supplied master prompt, and the repository as inspected on 2026-09-25.
 
 Status values in this document follow the specification: `IMPLEMENTED`, `PARTIALLY IMPLEMENTED`, `MISSING`, `BROKEN`, or `NOT APPLICABLE`.

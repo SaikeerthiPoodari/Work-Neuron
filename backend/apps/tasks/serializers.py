@@ -9,7 +9,6 @@ from .models import Task, TaskSkill
 
 
 class TaskSerializer(serializers.ModelSerializer):
-    save_as_draft = serializers.BooleanField(write_only=True, required=False, default=False)
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
     client_name = serializers.SerializerMethodField()
     required_skills = SkillSerializer(source="skills", many=True, read_only=True)
@@ -21,7 +20,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = (
-            "id", "owner_email", "client_name", "employer_verification", "title", "description", "required_skills", "skill_ids", "budget", "category", "save_as_draft",
+            "id", "owner_email", "client_name", "employer_verification", "title", "description", "required_skills", "skill_ids", "budget", "category",
             "job_type", "salary_type", "education_requirement", "experience_requirement", "working_hours",
             "start_date", "end_date", "deadline", "location", "location_address", "location_city", "location_area", "location_state", "location_description", "latitude", "longitude", "is_remote", "work_mode", "availability_requirements", "status", "created_at", "updated_at",
         )
@@ -68,10 +67,7 @@ class TaskSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        save_as_draft = validated_data.pop("save_as_draft", False)
         skills = validated_data.pop("skills", [])
-        if save_as_draft:
-            validated_data["status"] = Task.Status.DRAFT
         task = Task.objects.create(**validated_data)
         TaskSkill.objects.bulk_create([TaskSkill(task=task, skill=skill) for skill in skills])
         return task

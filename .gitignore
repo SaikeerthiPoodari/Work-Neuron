@@ -14,7 +14,6 @@ env/
 # Django
 staticfiles/
 media/
-backend/private/
 
 # Frontend/build artifacts
 node_modules/

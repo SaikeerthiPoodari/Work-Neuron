@@ -1,7 +1,0 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { get } from "../services/api";
-import { ErrorMessage } from "../components/StatusMessage";
-
-export default function PaymentDetailPage() { const { id } = useParams(); const [payment, setPayment] = useState(null); const [error, setError] = useState(""); useEffect(() => { get(`/payments/${id}/`).then(setPayment).catch((err) => setError(err.message)); }, [id]); if (error) return <ErrorMessage message={error} />; if (!payment) return <p className="py-10 text-slate-500">Loading payment...</p>; return <div className="max-w-2xl space-y-6"><Link className="text-sm font-semibold text-brand" to="../payments">← Back to payments</Link><header><p className="text-sm font-semibold text-brand">Payment detail</p><h1 className="mt-1 text-3xl font-black tracking-tight">{payment.assignment_title}</h1></header><div className="card grid gap-4 sm:grid-cols-2"><Detail label="Amount" value={`${payment.currency} ${payment.amount}`} /><Detail label="Status" value={payment.status} /><Detail label="Provider" value={payment.provider} /><Detail label="Created" value={new Date(payment.created_at).toLocaleString()} /><Detail label="Order ID" value={payment.provider_order_id || "Not assigned"} /><Detail label="Payment ID" value={payment.provider_payment_id || "Not assigned"} /></div></div>; }
-function Detail({ label, value }) { return <div><p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>; }

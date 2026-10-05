@@ -5,7 +5,6 @@ import { get, post } from "../services/api";
 import { EmptyState, ErrorMessage } from "../components/StatusMessage";
 import VoiceSearch from "../components/VoiceSearch";
 import { useI18n } from "../i18n/I18nContext";
-import ClientJobsPage from "./ClientJobsPage";
 
 const jobTypes = [["", "allJobTypes"], ["PART_TIME", "partTime"], ["DAILY_WAGE", "dailyWage"], ["WEEKEND", "weekend"], ["EVENT", "event"], ["FESTIVAL", "festival"], ["INTERNSHIP", "internship"], ["FULL_TIME", "fullTime"], ["FREELANCE", "freelance"]];
 
@@ -28,11 +27,9 @@ export default function TasksPage() {
     return get(`/tasks/${params.toString() ? `?${params.toString()}` : ""}`).then(setTasks).catch((err) => setError(err.message)).finally(() => setLoading(false));
   };
 
-  useEffect(() => { if (user.role !== "CLIENT") load(); }, []);
+  useEffect(() => { load(); }, []);
   const applyVoice = (voiceFilters) => { const next = { ...filters, ...voiceFilters }; setFilters(next); load(next); };
   const statusText = (status) => t(status === "OPEN" ? "open" : status === "APPLICATIONS_RECEIVED" ? "applicationsReceived" : status.replaceAll("_", " ").toLowerCase());
-
-  if (user.role === "CLIENT") return <ClientJobsPage />;
 
   return <div className="space-y-6">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">

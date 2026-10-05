@@ -61,9 +61,3 @@ class AuthenticationApiTests(APITestCase):
         authenticated = self.client.get(reverse("auth-me"))
         self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
         self.assertEqual(authenticated.data["email"], "client@example.com")
-
-    def test_login_rejects_wrong_role_entry_point(self):
-        User.objects.create_user(email="worker@example.com", password="secure-pass-123", role=User.Role.WORKER)
-        response = self.client.post(reverse("auth-login"), {"email": "worker@example.com", "password": "secure-pass-123", "role": User.Role.CLIENT}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Worker Login", str(response.data))

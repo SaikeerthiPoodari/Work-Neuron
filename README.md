@@ -8,8 +8,6 @@ Phase 14 delivery configuration is complete. WorkNeuron includes the Django/DRF 
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the architecture, phase plan, risks, and current implementation status.
 
-The existing Client role uses the same authentication and application as Workers and Admins. The current employer portal coverage, API-backed pages, and backend limitations are tracked in [CLIENT_IMPLEMENTATION_STATUS.md](CLIENT_IMPLEMENTATION_STATUS.md).
-
 Run the setup commands below from the repository root (the `WorkNeuron` folder containing this README). If your terminal starts in its parent folder (`WorkNeuron_Core_First`), first run `Set-Location .\WorkNeuron`.
 
 ## Phase 1 setup
@@ -157,11 +155,3 @@ WorkNeuron uses the Sentence Transformers model configured by `EMBEDDING_MODEL`,
 If the embedding model cannot be loaded, matching endpoints return `503 Service Unavailable`; the backend does not silently substitute fabricated AI scores.
 
 No secrets belong in Git. Use `backend/.env.example` as the configuration template.
-
-Client portal enhancements include protected worker discovery at `/api/employers/workers/`, client analytics at `/api/analytics/client/`, account/password settings, transaction detail routes, mark-all notification read, private job drafts with publish transitions, and job-scoped messaging/interview routes at `/api/messaging/messages/` and `/api/messaging/interviews/`. Client UI routes are `/client/workers`, `/client/analytics`, `/client/messages`, and `/client/settings`.
-
-## Global assistant and theme
-
-The authenticated application includes one reusable Nora assistant — **Nora — Your WorkNeuron AI Assistant** — at `POST /api/ai/assistant/`. It receives the current page context, derives the role from the authenticated JWT (never from the request body), and returns role-aware guidance, live authorized task results, and navigation actions. The default `AI_PROVIDER=fallback` is deterministic and does not fabricate jobs, workers, payments, or analytics. External provider integration is a configuration-required extension point using `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL`; no provider credentials are committed.
-
-Light/dark mode is provided by `ThemeProvider`, persisted as `workneuron-theme` in local storage, applied before the app loads to avoid a theme flash, and available from both authenticated navigation and authentication pages. The assistant and responsive mobile layout follow the selected theme.

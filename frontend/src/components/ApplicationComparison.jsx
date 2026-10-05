@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { get, post } from "../services/api";
 import { EmptyState, ErrorMessage } from "./StatusMessage";
 import { languageLabels } from "../i18n/languages";
@@ -8,7 +8,6 @@ const score = (value) => value == null ? "—" : `${Math.round(value)}%`;
 const rating = (value, count) => value == null ? "Not rated" : `${Number(value).toFixed(1)} / 5 (${count})`;
 
 export default function ApplicationComparison() {
-  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
   const [applicationCounts, setApplicationCounts] = useState({});
   const [taskId, setTaskId] = useState("");
@@ -32,13 +31,12 @@ export default function ApplicationComparison() {
         return result;
       }, {});
       setApplicationCounts(counts);
-      const requestedTask = searchParams.get("task");
-      const initial = clientTasks.find((item) => String(item.id) === requestedTask) || clientTasks.find((item) => counts[item.id] > 0);
+      const initial = clientTasks.find((item) => counts[item.id] > 0);
       if (initial) setTaskId(String(initial.id));
       else if (clientTasks.length) setTaskId(String(clientTasks[0].id));
       else setLoading(false);
     }).catch((err) => { setError(err.message); setLoading(false); });
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     if (!taskId) return;

@@ -28,3 +28,11 @@ class NotificationReadView(APIView):
             notification.save(update_fields=["read_at"])
         return Response(NotificationSerializer(notification).data)
 
+
+class NotificationReadAllView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        updated = Notification.objects.filter(recipient=request.user, read_at__isnull=True).update(read_at=timezone.now())
+        return Response({"updated": updated})
+

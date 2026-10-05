@@ -1,8 +1,8 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.accounts.models import User
 from apps.profiles.models import ClientProfile
+from apps.accounts.models import User
 
 from .models import EmployerVerification, VerificationDocument
 
@@ -55,3 +55,41 @@ class VerificationDocumentSerializer(serializers.ModelSerializer):
         if content_type and content_type not in {"application/pdf", "image/png", "image/jpeg"}:
             raise serializers.ValidationError("Only PDF, PNG, and JPEG documents are accepted.")
         return value
+
+
+class WorkerDirectorySerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    headline = serializers.SerializerMethodField()
+    bio = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+    availability = serializers.SerializerMethodField()
+    experience_years = serializers.SerializerMethodField()
+    skills = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "name", "headline", "bio", "location", "availability", "experience_years", "skills")
+
+    def get_name(self, obj):
+        return " ".join(part for part in (obj.first_name, obj.last_name) if part).strip() or "WorkNeuron worker"
+
+    def get_profile(self, obj):
+        return getattr(obj, "worker_profile", None)
+
+    def get_headline(self, obj):
+        return getattr(self.get_profile(obj), "headline", "")
+
+    def get_bio(self, obj):
+        return getattr(self.get_profile(obj), "bio", "")
+
+    def get_location(self, obj):
+        return getattr(self.get_profile(obj), "location", "")
+
+    def get_availability(self, obj):
+        return getattr(self.get_profile(obj), "availability", "")
+
+    def get_experience_years(self, obj):
+        return getattr(self.get_profile(obj), "experience_years", 0)
+
+    def get_skills(self, obj):
+        return [{"id": item.skill_id, "name": item.skill.name, "proficiency": item.proficiency} for item in obj.worker_skills.all()]

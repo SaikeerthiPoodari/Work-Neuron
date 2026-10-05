@@ -27,6 +27,7 @@ export default function ProfilePage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { if (!photoFile) { setPhotoPreview(""); return undefined; } const url = URL.createObjectURL(photoFile); setPhotoPreview(url); return () => URL.revokeObjectURL(url); }, [photoFile]);
   if (!profile) return <div className="py-10 text-slate-500" role="status">Loading profile…</div>;
+  if (user.role === "CLIENT") return <ClientProfileEditor profile={profile} onSaved={setProfile} />;
   const save = async (event) => {
     event.preventDefault(); setError("");
     try {
@@ -47,4 +48,31 @@ export default function ProfilePage() {
     <form onSubmit={save} className="card grid gap-4 md:grid-cols-2"><div className="md:col-span-2"><label className="label">Email</label><p className="mt-2 text-sm text-slate-600">{profile.email}</p></div>{fields.map(([key, value]) => <div key={key}><label className="label" htmlFor={`profile-${key}`}>{key.replaceAll("_", " ")}</label>{key === "bio" || key === "interests" ? <textarea id={`profile-${key}`} className="field" rows="4" value={value || ""} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })} /> : key === "availability" ? <select id={`profile-${key}`} className="field" value={value || "FLEXIBLE"} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })}><option value="FLEXIBLE">Flexible</option><option value="FULL_TIME">Full time</option><option value="PART_TIME">Part time</option><option value="WEEKENDS">Weekends</option></select> : <input id={`profile-${key}`} className="field" type={key.endsWith("url") ? "url" : "text"} value={value || ""} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })} />}</div>)}{user.role === "WORKER" && <div className="md:col-span-2"><label className="label" htmlFor="profile-languages">Languages</label><p className="mb-2 text-xs text-slate-500">Select all languages you can use for work. Use Ctrl or Command to select multiple.</p><select id="profile-languages" multiple size="7" className="field" value={profile.languages || []} onChange={(event) => setProfile({ ...profile, languages: [...event.target.selectedOptions].map((option) => option.value) })}>{languages.map(({ code, label }) => <option value={code} key={code}>{label}</option>)}</select><div className="mt-2 flex flex-wrap gap-2">{(profile.languages || []).map((code) => <span key={code} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-brand">{languageLabels[code] || code}</span>)}</div></div>}<div className="md:col-span-2"><ErrorMessage message={error} /><button className="button-primary mt-3">Save profile</button></div></form>
     {user.role === "WORKER" && <section className="card"><h2 className="text-lg font-bold">Skills</h2><div className="mt-4 flex flex-wrap gap-2">{skills.map((item) => <span className="rounded-full bg-blue-50 px-3 py-1.5 text-sm font-semibold text-brand" key={item.id}>{item.skill_name}<button type="button" aria-label={`Remove ${item.skill_name}`} className="ml-2 text-blue-400" onClick={() => remove(`/skills/mine/${item.id}/`).then(load).catch((err) => setError(err.message))}>×</button></span>)}</div><div className="mt-5 flex flex-col gap-2 sm:flex-row"><select className="field mt-0 max-w-xs" value={skillId} onChange={(event) => setSkillId(event.target.value)}><option value="">Add a skill…</option>{catalog.filter((skill) => !skills.some((mine) => mine.skill === skill.id)).map((skill) => <option value={skill.id} key={skill.id}>{skill.name}</option>)}</select><button type="button" className="button-secondary" disabled={!skillId} onClick={addSkill}>Add skill</button></div></section>}
   </div>;
+}
+
+function ClientProfileEditor({ profile, onSaved }) {
+  const [form, setForm] = useState(profile);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const employerTypes = [
+    ["COMPANY", "Company"], ["STORE", "Store"], ["RESTAURANT", "Restaurant"], ["MALL", "Mall"],
+    ["SUPERMARKET", "Supermarket"], ["EVENT_ORGANIZER", "Event organizer"], ["CALL_CENTER", "Call center"],
+    ["DELIVERY_BUSINESS", "Delivery business"], ["RECRUITER", "Recruiter"], ["LOCAL_BUSINESS", "Local business"],
+  ];
+  const save = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSaved(false);
+    try {
+      const { id, email, updated_at, ...payload } = form;
+      const updated = await patch("/profiles/me/", payload);
+      setForm(updated);
+      onSaved(updated);
+      setSaved(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  return <div className="max-w-3xl space-y-6"><header><p className="text-sm font-semibold text-brand">Business identity</p><h1 className="mt-1 text-3xl font-black">Employer profile</h1><p className="mt-2 text-sm text-slate-500">These profile details are used on your employer account. Verification records are managed separately.</p></header><form onSubmit={save} className="card grid gap-4 md:grid-cols-2"><div className="md:col-span-2"><label className="label">Email</label><p className="mt-2 text-sm text-slate-600">{profile.email}</p></div><label className="label">Organization / business name<input className="field" value={form.organization_name || ""} onChange={(event) => update("organization_name", event.target.value)} /></label><label className="label">Business type<select className="field" value={form.employer_type || ""} onChange={(event) => update("employer_type", event.target.value)}><option value="">Choose a business type</option>{employerTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label className="label">Contact phone<input className="field" type="tel" value={form.phone || ""} onChange={(event) => update("phone", event.target.value)} /></label><label className="label">Website<input className="field" type="url" value={form.website || ""} onChange={(event) => update("website", event.target.value)} /></label><label className="label md:col-span-2">Business location<input className="field" value={form.location || ""} onChange={(event) => update("location", event.target.value)} placeholder="Address or city" /></label><label className="label md:col-span-2">Description<textarea className="field" rows="4" value={form.bio || ""} onChange={(event) => update("bio", event.target.value)} /></label><div className="md:col-span-2"><ErrorMessage message={error} />{saved && <p role="status" className="mb-3 text-sm text-emerald-700">Profile saved.</p>}<button className="button-primary">Save profile</button></div></form><p className="text-xs text-slate-500">The current profile API does not support a logo upload, separate name editing, or structured address fields.</p></div>;
 }

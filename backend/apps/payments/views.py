@@ -32,6 +32,19 @@ class TransactionListView(generics.ListAPIView):
         return queryset.filter(assignment__worker=self.request.user)
 
 
+class TransactionDetailView(generics.RetrieveAPIView):
+    serializer_class = TransactionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Transaction.objects.select_related("assignment__task", "payer")
+        if self.request.user.role == User.Role.ADMIN:
+            return queryset
+        if self.request.user.role == User.Role.CLIENT:
+            return queryset.filter(assignment__task__owner=self.request.user)
+        return queryset.filter(assignment__worker=self.request.user)
+
+
 class EmployerDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

@@ -2,9 +2,15 @@ import hashlib
 import hmac
 import json
 import os
+import re
+import secrets
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Sum
+from django.db.models.functions import TruncDate, TruncMonth
+from django.utils import timezone
+from django.contrib.auth.hashers import check_password, make_password
+from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -14,8 +20,8 @@ from apps.accounts.models import User
 from apps.assignments.models import Assignment
 from apps.tasks.models import Task
 
-from .models import Transaction
-from .serializers import PaymentVerifySerializer, TransactionSerializer
+from .models import BankAccount, PaymentMethod, PaymentProfile, PayoutRecord, Transaction
+from .serializers import BankAccountSerializer, PaymentMethodSerializer, PaymentProfileSerializer, PaymentVerifySerializer, PayoutRecordSerializer, TransactionSerializer
 from .services import PaymentConfigurationError, create_test_order, refund_test_payment, verify_test_payment
 
 
@@ -32,6 +38,118 @@ class TransactionListView(generics.ListAPIView):
         return queryset.filter(assignment__worker=self.request.user)
 
 
+def get_payment_profile(user):
+    profile, _ = PaymentProfile.objects.get_or_create(user=user, defaults={"qr_token": f"WN-{secrets.token_urlsafe(32)}"})
+    if not profile.qr_token:
+        profile.qr_token = f"WN-{secrets.token_urlsafe(32)}"
+        profile.save(update_fields=["qr_token", "updated_at"])
+    return profile
+
+
+class WalletOverviewView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        transactions = Transaction.objects.filter(assignment__worker=request.user) if request.user.role == User.Role.WORKER else Transaction.objects.filter(assignment__task__owner=request.user)
+        verified = transactions.filter(status=Transaction.Status.VERIFIED)
+        held = verified.filter(escrow_status=Transaction.EscrowStatus.HELD)
+        released = verified.filter(escrow_status=Transaction.EscrowStatus.RELEASED)
+        refunded = transactions.filter(status=Transaction.Status.REFUNDED)
+        total = lambda qs: str(qs.aggregate(value=Sum("amount"))["value"] or 0)
+        return Response({"role": request.user.role, "profile": PaymentProfileSerializer(get_payment_profile(request.user), context={"request": request}).data, "summary": {"total": total(verified), "held": total(held), "released": total(released), "refunded": total(refunded), "pending": total(transactions.filter(status=Transaction.Status.CREATED))}, "transactions": TransactionSerializer(transactions.select_related("assignment__task", "assignment__task__owner"), many=True).data, "bank_accounts": BankAccountSerializer(BankAccount.objects.filter(user=request.user), many=True).data, "payment_methods": PaymentMethodSerializer(PaymentMethod.objects.filter(user=request.user), many=True).data, "payouts": PayoutRecordSerializer(PayoutRecord.objects.filter(worker=request.user).select_related("transaction__assignment__task"), many=True).data})
+
+
+class BankAccountListCreateView(generics.ListCreateAPIView):
+    serializer_class = BankAccountSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return BankAccount.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        account = serializer.save(user=self.request.user, verification_status=BankAccount.VerificationStatus.PENDING)
+        if not BankAccount.objects.filter(user=self.request.user).exclude(pk=account.pk).exists() or account.is_primary:
+            BankAccount.objects.filter(user=self.request.user).exclude(pk=account.pk).update(is_primary=False)
+            account.is_primary = True
+            account.save(update_fields=["is_primary", "updated_at"])
+
+
+class BankAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BankAccountSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return BankAccount.objects.filter(user=self.request.user)
+
+    def perform_update(self, serializer):
+        account = serializer.save(verification_status=BankAccount.VerificationStatus.PENDING)
+        if account.is_primary:
+            BankAccount.objects.filter(user=self.request.user).exclude(pk=account.pk).update(is_primary=False)
+
+    def perform_destroy(self, instance):
+        if instance.payouts.filter(status=PayoutRecord.Status.PROCESSING).exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("This account cannot be removed while a payout is processing.")
+        instance.delete()
+
+
+class PaymentMethodListCreateView(generics.ListCreateAPIView):
+    serializer_class = PaymentMethodSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return PaymentMethod.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        method = serializer.save(user=self.request.user, verification_status="PENDING")
+        if method.is_primary:
+            PaymentMethod.objects.filter(user=self.request.user).exclude(pk=method.pk).update(is_primary=False)
+
+
+class PaymentPinView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        profile = get_payment_profile(request.user)
+        current = request.data.get("current_pin", "")
+        new_pin = str(request.data.get("new_pin", ""))
+        confirm = str(request.data.get("confirm_pin", ""))
+        if not re.fullmatch(r"\d{6}", new_pin) or new_pin != confirm:
+            return Response({"detail": "Payment PIN must be six matching digits."}, status=status.HTTP_400_BAD_REQUEST)
+        if profile.pin_hash and not check_password(current, profile.pin_hash):
+            profile.pin_attempts += 1
+            profile.save(update_fields=["pin_attempts", "updated_at"])
+            return Response({"detail": "Current payment PIN is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+        profile.pin_hash = make_password(new_pin)
+        profile.pin_attempts = 0
+        profile.pin_locked_until = None
+        profile.save(update_fields=["pin_hash", "pin_attempts", "pin_locked_until", "updated_at"])
+        return Response({"detail": "Payment PIN saved securely."})
+
+
+class PaymentQrView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(PaymentProfileSerializer(get_payment_profile(request.user), context={"request": request}).data)
+
+    def post(self, request):
+        profile = get_payment_profile(request.user)
+        profile.qr_token = f"WN-{secrets.token_urlsafe(32)}"
+        profile.qr_revoked = False
+        profile.save(update_fields=["qr_token", "qr_revoked", "updated_at"])
+        return Response(PaymentProfileSerializer(profile, context={"request": request}).data)
+
+
+class PaymentQrResolveView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, token):
+        profile = get_object_or_404(PaymentProfile.objects.select_related("user"), qr_token=token, qr_revoked=False)
+        user = profile.user
+        return Response({"workneuron_id": user.id, "name": " ".join(filter(None, [user.first_name, user.last_name])) or user.email, "role": user.role, "email": user.email if request.user.role == User.Role.ADMIN else None, "profile_id": profile.id, "payment_profile_verified": True})
+
+
 class TransactionDetailView(generics.RetrieveAPIView):
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -43,6 +161,36 @@ class TransactionDetailView(generics.RetrieveAPIView):
         if self.request.user.role == User.Role.CLIENT:
             return queryset.filter(assignment__task__owner=self.request.user)
         return queryset.filter(assignment__worker=self.request.user)
+
+
+class PaymentAnalyticsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        queryset = Transaction.objects.filter(status__in=[Transaction.Status.VERIFIED, Transaction.Status.CREATED]).select_related("assignment__task")
+        if request.user.role == User.Role.WORKER:
+            queryset = queryset.filter(assignment__worker=request.user)
+        elif request.user.role == User.Role.CLIENT:
+            queryset = queryset.filter(assignment__task__owner=request.user)
+        else:
+            queryset = queryset
+        range_name = request.query_params.get("range", "6m")
+        days = {"7d": 7, "30d": 30, "3m": 90, "6m": 180}.get(range_name)
+        if days:
+            queryset = queryset.filter(created_at__gte=timezone.now() - timedelta(days=days))
+        verified = queryset.filter(status=Transaction.Status.VERIFIED)
+        money = lambda value: f"{value or 0:.2f}"
+        status_totals = list(queryset.values("status").annotate(total=Sum("amount"), count=Count("id")))
+        monthly = list(verified.annotate(period=TruncMonth("created_at")).values("period").annotate(total=Sum("amount"), count=Count("id")).order_by("period"))
+        daily = list(verified.annotate(period=TruncDate("created_at")).values("period").annotate(total=Sum("amount"), count=Count("id")).order_by("period"))
+        return Response({
+            "range": range_name,
+            "currency": "INR",
+            "summary": {"total_earnings": money(verified.aggregate(total=Sum("amount"))["total"]), "pending_payments": money(queryset.filter(status=Transaction.Status.CREATED).aggregate(total=Sum("amount"))["total"]), "completed_payments": verified.count()},
+            "status_breakdown": [{"status": row["status"], "amount": money(row["total"]), "count": row["count"]} for row in status_totals],
+            "monthly": [{"period": row["period"].date().isoformat() if row["period"] else None, "amount": money(row["total"]), "count": row["count"]} for row in monthly],
+            "daily": [{"period": row["period"].isoformat() if row["period"] else None, "amount": money(row["total"]), "count": row["count"]} for row in daily],
+        })
 
 
 class EmployerDashboardView(APIView):
@@ -192,8 +340,9 @@ class RazorpayWebhookView(APIView):
             return Response({"received": True, "matched": True, "status": transaction.status})
         if event in {"payment.captured", "payment.authorized"}:
             transaction.status = Transaction.Status.VERIFIED
+            transaction.escrow_status = Transaction.EscrowStatus.HELD
             transaction.provider_payment_id = payment_id or transaction.provider_payment_id
         elif event == "payment.failed":
             transaction.status = Transaction.Status.FAILED
-        transaction.save(update_fields=["status", "provider_payment_id", "updated_at"])
+        transaction.save(update_fields=["status", "escrow_status", "provider_payment_id", "updated_at"])
         return Response({"received": True, "matched": True, "status": transaction.status})

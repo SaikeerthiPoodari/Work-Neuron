@@ -51,6 +51,21 @@ class MessagingApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(Notification.objects.filter(recipient=self.worker, kind=Notification.Kind.INTERVIEW_SCHEDULED).exists())
 
+    def test_client_can_cancel_and_reschedule_own_interview(self):
+        self.client.force_authenticate(user=self.client_user)
+        starts = timezone.now() + timedelta(days=1)
+        ends = starts + timedelta(minutes=30)
+        created = self.client.post(reverse("interview-list-create"), {"application": self.application.id, "starts_at": starts.isoformat(), "ends_at": ends.isoformat(), "location": "Online"}, format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        interview_id = created.data["id"]
+        moved = starts + timedelta(days=1)
+        response = self.client.post(reverse("interview-action", args=[interview_id, "reschedule"]), {"starts_at": moved.isoformat(), "ends_at": (moved + timedelta(minutes=45)).isoformat(), "location": "Updated room"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["location"], "Updated room")
+        cancelled = self.client.post(reverse("interview-action", args=[interview_id, "cancel"]))
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        self.assertEqual(cancelled.data["status"], "CANCELLED")
+
     def test_client_message_requires_selected_application_and_matching_worker(self):
         self.client.force_authenticate(user=self.client_user)
         missing_application = self.client.post(reverse("message-list-create"), {

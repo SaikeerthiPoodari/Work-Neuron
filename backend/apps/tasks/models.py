@@ -44,6 +44,7 @@ class Task(models.Model):
     title = models.CharField(max_length=180)
     description = models.TextField()
     budget = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    vacancies = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
     category = models.CharField(max_length=80, blank=True)
     job_type = models.CharField(max_length=20, choices=JobType.choices, default=JobType.FREELANCE)
     salary_type = models.CharField(max_length=20, choices=SalaryType.choices, default=SalaryType.FIXED)

@@ -1,9 +1,10 @@
 from django.urls import path
 
-from .views import ConnectionActionView, ConnectionListCreateView, DirectMessageListCreateView, DirectMessageReadView, DiscoverView, FeedView, FollowView, PostActionView, PostCommentView, ProfileOverviewView
+from .views import ConnectionActionView, ConnectionListCreateView, DirectMessageListCreateView, DirectMessageReadView, DiscoverView, FeedView, FollowView, PostActionView, PostCommentView, ProfileOverviewView, SavedPostsView
 
 urlpatterns = [
     path("feed/", FeedView.as_view(), name="network-feed"),
+    path("saved/", SavedPostsView.as_view(), name="network-saved"),
     path("discover/", DiscoverView.as_view(), name="network-discover"),
     path("posts/<int:pk>/comments/", PostCommentView.as_view(), name="network-post-comments"),
     path("posts/<int:pk>/<str:action>/", PostActionView.as_view(), name="network-post-action"),

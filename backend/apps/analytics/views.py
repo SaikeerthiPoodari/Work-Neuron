@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from django.db.models import Count, Sum
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncDate, TruncMonth
 from django.utils import timezone
 from rest_framework import permissions
 from rest_framework.response import Response
@@ -161,9 +161,16 @@ class ClientAnalyticsView(APIView):
         owned_assignments = Assignment.objects.filter(task__owner=request.user)
         owned_transactions = Transaction.objects.filter(assignment__task__owner=request.user)
         accepted = owned_apps.filter(status=Application.Status.ACCEPTED).count()
+        task_series = list(owned_tasks.values("status").annotate(count=Count("id")).order_by("status"))
+        application_series = list(owned_apps.values("status").annotate(count=Count("id")).order_by("status"))
+        payment_series = list(owned_transactions.values("status").annotate(total=Sum("amount"), count=Count("id")).order_by("status"))
+        category_series = list(owned_tasks.exclude(category="").values("category").annotate(count=Count("id")).order_by("-count")[:8])
+        location_series = list(owned_tasks.exclude(location_city="").values("location_city").annotate(count=Count("id")).order_by("-count")[:8])
+        monthly_apps = list(owned_apps.annotate(period=TruncMonth("created_at")).values("period").annotate(count=Count("id")).order_by("period"))
         return Response({
             "jobs": {"total": owned_tasks.count(), "open": owned_tasks.filter(status__in=[Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED]).count(), "completed": owned_tasks.filter(status=Task.Status.COMPLETED).count()},
             "applications": {"total": owned_apps.count(), "accepted": accepted, "pending": owned_apps.filter(status=Application.Status.SUBMITTED).count(), "acceptance_rate": round(accepted * 100 / owned_apps.count(), 1) if owned_apps.exists() else 0},
             "assignments": {"total": owned_assignments.count(), "completed": owned_assignments.filter(task__status=Task.Status.COMPLETED).count()},
-            "payments": {"total": str(owned_transactions.filter(status=Transaction.Status.VERIFIED).aggregate(total=Sum("amount"))["total"] or 0), "pending": str(owned_transactions.exclude(status__in=[Transaction.Status.VERIFIED, Transaction.Status.REFUNDED]).aggregate(total=Sum("amount"))["total"] or 0)},
+            "payments": {"total": str(owned_transactions.filter(status=Transaction.Status.VERIFIED).exclude(escrow_status=Transaction.EscrowStatus.HELD).aggregate(total=Sum("amount"))["total"] or 0), "pending": str(owned_transactions.filter(escrow_status=Transaction.EscrowStatus.HELD).aggregate(total=Sum("amount"))["total"] or 0)},
+            "series": {"tasks": task_series, "applications": application_series, "payments": [{**item, "total": str(item["total"] or 0)} for item in payment_series], "categories": category_series, "locations": location_series, "monthly_applications": [{"period": item["period"].date().isoformat(), "count": item["count"]} for item in monthly_apps]},
         })

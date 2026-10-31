@@ -6,6 +6,7 @@ from .views import (
     AssignmentLevelReviewView,
     AssignmentLevelSubmitView,
     AssignmentLevelTaskCompleteView,
+    ClientAssignmentLevelTaskCompleteView,
     AssignmentLevelsConfigView,
     AssignmentListView,
     AssignmentProgressView,
@@ -24,5 +25,6 @@ urlpatterns = [
     path("<int:pk>/levels/", AssignmentLevelsConfigView.as_view(), name="assignment-levels-config"),
     path("<int:pk>/levels/<int:level_id>/submit/", AssignmentLevelSubmitView.as_view(), name="assignment-level-submit"),
     path("<int:pk>/levels/<int:level_id>/tasks/<int:task_id>/complete/", AssignmentLevelTaskCompleteView.as_view(), name="assignment-level-task-complete"),
+    path("<int:pk>/levels/<int:level_id>/tasks/<int:task_id>/client-complete/", ClientAssignmentLevelTaskCompleteView.as_view(), name="assignment-level-client-task-complete"),
     path("<int:pk>/levels/<int:level_id>/review/", AssignmentLevelReviewView.as_view(), name="assignment-level-review"),
 ]

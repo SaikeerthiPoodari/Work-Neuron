@@ -1,6 +1,9 @@
 from django.db.models import Q
+from django.db.models import Avg
+from django.db import models
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -21,6 +24,7 @@ from .serializers import ConnectionSerializer, DirectMessageSerializer, FollowSe
 class FeedView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = PostSerializer
+    parser_classes = [MultiPartParser, FormParser, *generics.ListCreateAPIView.parser_classes]
 
     def get_queryset(self):
         query = self.request.query_params.get("q", "").strip()
@@ -32,6 +36,14 @@ class FeedView(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer): serializer.save(author=self.request.user)
+
+
+class SavedPostsView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PostSerializer
+
+    def get_queryset(self):
+        return Post.objects.filter(saves__user=self.request.user).select_related("author", "author__worker_profile", "author__client_profile").prefetch_related("likes", "saves", "comments__author")
 
 
 class PostActionView(APIView):
@@ -48,8 +60,11 @@ class PostActionView(APIView):
             if not created: item.delete()
             return Response({"saved": created, "saves_count": post.saves.count()})
         if action == "share":
+            post.shares_count = models.F("shares_count") + 1
+            post.save(update_fields=["shares_count"])
+            post.refresh_from_db(fields=["shares_count"])
             create_notification(post.author, Notification.Kind.MESSAGE_RECEIVED, "Your post was shared", f"{request.user.email} shared your professional post.", "/feed")
-            return Response({"shared": True})
+            return Response({"shared": True, "shares_count": post.shares_count})
         return Response({"detail": "Unsupported post action."}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -97,7 +112,12 @@ class ConnectionListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         target = get_object_or_404(User, pk=request.data.get("user_id"), is_active=True)
         if target == request.user: return Response({"detail": "You cannot connect with yourself."}, status=status.HTTP_400_BAD_REQUEST)
-        item, created = Connection.objects.get_or_create(requester=request.user, recipient=target, defaults={"status": Connection.Status.PENDING})
+        item = Connection.objects.filter(Q(requester=request.user, recipient=target) | Q(requester=target, recipient=request.user)).first()
+        created = item is None
+        if created:
+            item = Connection.objects.create(requester=request.user, recipient=target, status=Connection.Status.PENDING)
+        elif item.requester_id != request.user.id:
+            return Response(ConnectionSerializer(item, context={"request": request}).data)
         if not created and item.status == Connection.Status.DECLINED: item.status = Connection.Status.PENDING; item.save(update_fields=["status", "updated_at"])
         if not created and item.status != Connection.Status.PENDING: return Response(ConnectionSerializer(item, context={"request": request}).data)
         create_notification(target, Notification.Kind.MESSAGE_RECEIVED, "New connection request", f"{request.user.email} wants to connect with you.", "/discover")
@@ -154,14 +174,34 @@ class ProfileOverviewView(APIView):
         user = get_object_or_404(User.objects.select_related("worker_profile", "client_profile"), pk=user_id, is_active=True)
         profile = getattr(user, "worker_profile", None) or getattr(user, "client_profile", None)
         profile_data = None
-        if isinstance(profile, WorkerProfile): profile_data = WorkerProfileSerializer(profile, context={"request": request}).data
-        if isinstance(profile, ClientProfile): profile_data = ClientProfileSerializer(profile, context={"request": request}).data
+        if isinstance(profile, WorkerProfile):
+            raw = WorkerProfileSerializer(profile, context={"request": request}).data
+            profile_data = {key: raw.get(key) for key in ("headline", "bio", "experience_years", "location", "portfolio_url", "profile_photo_url", "profile_photo", "cover_image", "education", "interests", "profile_completion")}
+        if isinstance(profile, ClientProfile):
+            raw = ClientProfileSerializer(profile, context={"request": request}).data
+            profile_data = {key: raw.get(key) for key in ("organization_name", "bio", "location", "website", "profile_photo", "cover_image", "employer_type", "profile_completion")}
         accepted = Connection.objects.filter(status=Connection.Status.ACCEPTED).filter(Q(requester=user) | Q(recipient=user)).select_related("requester", "recipient")
         connections = [item.recipient if item.requester_id == user.id else item.requester for item in accepted]
         followers = User.objects.filter(following__following=user, is_active=True).select_related("worker_profile", "client_profile")
         following = User.objects.filter(followers__follower=user, is_active=True).select_related("worker_profile", "client_profile")
         verification = EmployerVerification.objects.filter(employer=user).first()
         posts = Post.objects.filter(author=user).select_related("author").prefetch_related("likes", "saves", "comments__author")[:50]
+        skills = []
+        experience = []
+        client_stats = None
+        client_assignments = []
+        client_reviews = []
+        if isinstance(profile, WorkerProfile):
+            skills = [{"name": item.skill.name, "category": item.skill.category, "proficiency": item.proficiency, "years_experience": item.years_experience} for item in user.worker_skills.select_related("skill").all()]
+            from apps.assignments.models import Assignment
+            experience = [{"title": item.task.title, "category": item.task.category, "client_name": " ".join(filter(None, [item.task.owner.first_name, item.task.owner.last_name])) or item.task.owner.email, "started_at": item.started_at, "completed_at": item.completed_at, "skills": [skill.name for skill in item.task.skills.all()]} for item in Assignment.objects.filter(worker=user, task__status="COMPLETED").select_related("task__owner").prefetch_related("task__skills")]
+        if isinstance(profile, ClientProfile):
+            from apps.assignments.models import Assignment
+            from apps.reviews.models import Review
+            client_tasks = user.tasks.all()
+            client_stats = {"assignments_posted": client_tasks.count(), "completed_assignments": client_tasks.filter(status="COMPLETED").count(), "average_rating": Review.objects.filter(reviewed_user=user).aggregate(value=Avg("rating"))["value"]}
+            client_assignments = [{"id": item.id, "title": item.title, "description": item.description, "category": item.category, "status": item.status, "budget": item.budget, "deadline": item.deadline, "created_at": item.created_at} for item in client_tasks.filter(status__in=["OPEN", "APPLICATIONS_RECEIVED", "ASSIGNED", "IN_PROGRESS", "SUBMITTED", "COMPLETED"])[:30]]
+            client_reviews = [{"rating": item.rating, "review": item.review, "created_at": item.created_at, "reviewer_name": " ".join(filter(None, [item.reviewer.first_name, item.reviewer.last_name])) or "WorkNeuron member"} for item in Review.objects.filter(reviewed_user=user).select_related("reviewer")[:20]]
         return Response({
             "user": NetworkUserSerializer(user, context={"request": request}).data,
             "profile": profile_data,
@@ -169,5 +209,10 @@ class ProfileOverviewView(APIView):
             "following": NetworkUserSerializer(following, many=True, context={"request": request}).data,
             "connections": NetworkUserSerializer(connections, many=True, context={"request": request}).data,
             "posts": PostSerializer(posts, many=True, context={"request": request}).data,
+            "skills": skills,
+            "experience": experience,
+            "client_stats": client_stats,
+            "client_assignments": client_assignments,
+            "client_reviews": client_reviews,
             "verification": EmployerVerificationSerializer(verification).data if verification else None,
         })

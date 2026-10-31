@@ -7,7 +7,7 @@ from .models import Connection, DirectMessage, Follow, Post, PostComment
 
 
 def display_name(user):
-    return " ".join(part for part in (user.first_name, user.last_name) if part).strip() or user.email
+    return " ".join(part for part in (user.first_name, user.last_name) if part).strip() or "WorkNeuron member"
 
 
 class NetworkUserSerializer(serializers.ModelSerializer):
@@ -18,10 +18,11 @@ class NetworkUserSerializer(serializers.ModelSerializer):
     following_count = serializers.IntegerField(source="following.count", read_only=True)
     connections_count = serializers.SerializerMethodField()
     mutual_connections = serializers.SerializerMethodField()
+    profile_photo = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "email", "first_name", "last_name", "name", "role", "headline", "location", "followers_count", "following_count", "connections_count", "mutual_connections")
+        fields = ("id", "first_name", "last_name", "name", "role", "headline", "location", "profile_photo", "followers_count", "following_count", "connections_count", "mutual_connections")
 
     def get_name(self, obj): return display_name(obj)
 
@@ -32,6 +33,14 @@ class NetworkUserSerializer(serializers.ModelSerializer):
     def get_location(self, obj):
         profile = getattr(obj, "worker_profile", None) or getattr(obj, "client_profile", None)
         return getattr(profile, "location", "") or getattr(profile, "current_city", "")
+
+    def get_profile_photo(self, obj):
+        profile = getattr(obj, "worker_profile", None) or getattr(obj, "client_profile", None)
+        photo = getattr(profile, "profile_photo", None) if profile else None
+        if photo:
+            request = self.context.get("request")
+            return request.build_absolute_uri(photo.url) if request else photo.url
+        return getattr(profile, "profile_photo_url", "") if profile else ""
 
     def get_connections_count(self, obj):
         return Connection.objects.filter(status=Connection.Status.ACCEPTED).filter(requester=obj).count() + Connection.objects.filter(status=Connection.Status.ACCEPTED, recipient=obj).count()
@@ -66,11 +75,17 @@ class PostSerializer(serializers.ModelSerializer):
     liked = serializers.SerializerMethodField()
     saved = serializers.SerializerMethodField()
     comments = PostCommentSerializer(many=True, read_only=True)
+    image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Post
-        fields = ("id", "author", "kind", "title", "body", "portfolio_url", "created_at", "updated_at", "likes_count", "comments_count", "saves_count", "liked", "saved", "comments")
+        fields = ("id", "author", "kind", "title", "body", "hashtags", "portfolio_url", "link_url", "image", "video_url", "shares_count", "created_at", "updated_at", "likes_count", "comments_count", "saves_count", "liked", "saved", "comments")
         read_only_fields = ("id", "author", "created_at", "updated_at", "likes_count", "comments_count", "saves_count", "liked", "saved", "comments")
+
+    def validate_image(self, image):
+        if image and image.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("Post images must be 5 MB or smaller.")
+        return image
 
     def get_liked(self, obj): return obj.likes.filter(user=self.context["request"].user).exists()
     def get_saved(self, obj): return obj.saves.filter(user=self.context["request"].user).exists()

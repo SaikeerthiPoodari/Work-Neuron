@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -24,6 +25,7 @@ class NetworkApiTests(APITestCase):
         comment = self.client.post(reverse("network-post-comments", args=[post_id]), {"body": "Excellent work."}, format="json")
         self.assertEqual(comment.status_code, status.HTTP_201_CREATED, comment.data)
         self.assertEqual(self.client.post(reverse("network-post-action", args=[post_id, "share"])).status_code, status.HTTP_200_OK)
+        self.assertEqual(Post.objects.get(pk=post_id).shares_count, 1)
 
     def test_follow_and_connection_permissions(self):
         follow = self.client.post(reverse("network-follow", args=[self.other.id]))
@@ -39,6 +41,10 @@ class NetworkApiTests(APITestCase):
         accepted = self.client.post(reverse("network-connection-action", args=[connection.id, "accept"]))
         self.assertEqual(accepted.status_code, status.HTTP_200_OK)
         self.assertEqual(accepted.data["status"], Connection.Status.ACCEPTED)
+        self.client.force_authenticate(self.worker)
+        reverse_request = self.client.post(reverse("network-connections"), {"user_id": self.client_user.id}, format="json")
+        self.assertEqual(reverse_request.status_code, status.HTTP_200_OK)
+        self.assertEqual(Connection.objects.filter(Q(requester=self.worker, recipient=self.client_user) | Q(requester=self.client_user, recipient=self.worker)).count(), 1)
 
     def test_discover_excludes_current_user_and_supports_search(self):
         response = self.client.get(reverse("network-discover"), {"q": "Ravi"})

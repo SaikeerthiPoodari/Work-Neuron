@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Count
+from django.db.models import Count, Avg
 from django.db.models.functions import Trim
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -8,7 +8,6 @@ from rest_framework.views import APIView
 from apps.accounts.models import User
 from apps.tasks.models import Task
 from apps.skills.models import WorkerSkill
-from ai_engine.embeddings.service import EmbeddingUnavailableError
 from ai_engine.matching.scoring import score_task_for_worker
 from apps.search.models import SearchEvent
 
@@ -72,10 +71,7 @@ class SmartTaskFeedView(APIView):
             tasks = tasks.filter(budget__lte=request.query_params["max_budget"])
         if request.query_params.get("verified") in {"1", "true", "True"}:
             tasks = tasks.filter(owner__employer_verification__status="VERIFIED")
-        try:
-            ranked = [{"task": task_summary(task), "match": apply_history_signal(score_task_for_worker(task, request.user), task, request.user)} for task in tasks.distinct()]
-        except EmbeddingUnavailableError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        ranked = [{"task": task_summary(task), "match": apply_history_signal(score_task_for_worker(task, request.user), task, request.user)} for task in tasks.distinct()]
         ranked.sort(key=lambda item: item["match"]["overall_score"], reverse=True)
         return Response(ranked[:limit])
 
@@ -216,9 +212,19 @@ class WorkerRecommendationsView(APIView):
         if request.user.role == User.Role.CLIENT and task.owner_id != request.user.id:
             return Response({"detail": "Only the task owner can view worker recommendations."}, status=status.HTTP_403_FORBIDDEN)
         workers = User.objects.filter(role=User.Role.WORKER, is_active=True).prefetch_related("worker_skills__skill", "worker_profile")
-        try:
-            ranked = [{"worker": {"id": worker.id, "email": worker.email, "first_name": worker.first_name, "last_name": worker.last_name, "role": worker.role}, "match": score_task_for_worker(task, worker)} for worker in workers]
-        except EmbeddingUnavailableError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        from apps.reviews.models import Review
+        from apps.assignments.models import Assignment
+        ratings = {row["reviewed_user_id"]: row for row in Review.objects.filter(reviewed_user__in=workers).values("reviewed_user_id").annotate(average=Avg("rating"), count=Count("id"))}
+        completed = {row["worker_id"]: row["count"] for row in Assignment.objects.filter(worker__in=workers, task__status=Task.Status.COMPLETED).values("worker_id").annotate(count=Count("id"))}
+        ranked = []
+        for worker in workers:
+            profile = getattr(worker, "worker_profile", None)
+            rating = ratings.get(worker.id)
+            photo = ""
+            if profile and profile.profile_photo:
+                photo = request.build_absolute_uri(profile.profile_photo.url)
+            elif profile:
+                photo = profile.profile_photo_url
+            ranked.append({"worker": {"id": worker.id, "email": worker.email, "first_name": worker.first_name, "last_name": worker.last_name, "name": " ".join(filter(None, [worker.first_name, worker.last_name])) or worker.email, "role": worker.role, "profile_photo": photo, "headline": profile.headline if profile else "", "location": profile.location if profile else "", "experience_years": profile.experience_years if profile else 0, "education": profile.education if profile else "", "skills": [{"id": skill.skill_id, "name": skill.skill.name, "proficiency": skill.proficiency} for skill in worker.worker_skills.all()], "rating_average": round(float(rating["average"]), 2) if rating else None, "rating_count": rating["count"] if rating else 0, "completed_assignments": completed.get(worker.id, 0)}, "match": score_task_for_worker(task, worker)})
         ranked.sort(key=lambda item: item["match"]["overall_score"], reverse=True)
         return Response(ranked[:50])

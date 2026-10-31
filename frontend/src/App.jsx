@@ -12,6 +12,7 @@ import AdminPage from "./pages/AdminPage";
 import RecommendationsPage from "./pages/RecommendationsPage";
 import ReviewsPage from "./pages/ReviewsPage";
 import PaymentsPage from "./pages/PaymentsPage";
+import WalletPage from "./pages/WalletPage";
 import ComplaintsPage from "./pages/ComplaintsPage";
 import SkillGraphPage from "./pages/SkillGraphPage";
 import NearbyJobsPage from "./pages/NearbyJobsPage";
@@ -50,6 +51,7 @@ const portalPages = <Route element={<AppLayout />}>
   <Route path="skill-graph" element={<SkillGraphPage />} />
   <Route path="reviews" element={<ReviewsPage />} />
   <Route path="payments" element={<PaymentsPage />} />
+  <Route path="wallet" element={<WalletPage />} />
   <Route path="payments/:id" element={<PaymentDetailPage />} />
   <Route path="complaints" element={<ComplaintsPage />} />
   <Route path="notifications" element={<NotificationsPage />} />
@@ -76,7 +78,7 @@ export default function App() {
     {RoleRoutes({ role: "WORKER", prefix: "/worker" })}
     {RoleRoutes({ role: "CLIENT", prefix: "/client" })}
     {RoleRoutes({ role: "ADMIN", prefix: "/admin" })}
-    <Route element={<LegacyPortal />}><Route element={<AppLayout />}><Route path="/tasks" element={<TasksPage />} /><Route path="/nearby" element={<NearbyJobsPage />} /><Route path="/feed" element={<NetworkFeedPage />} /><Route path="/discover" element={<NetworkDiscoverPage />} /><Route path="/messages" element={<ClientCommunicationPage />} /><Route path="/tasks/:id" element={<TaskDetailPage />} /><Route path="/profile" element={<ProfilePage />} /><Route path="/assignments" element={<AssignmentsPage />} /><Route path="/recommendations" element={<RecommendationsPage />} /><Route path="/skill-graph" element={<SkillGraphPage />} /><Route path="/reviews" element={<ReviewsPage />} /><Route path="/payments" element={<PaymentsPage />} /><Route path="/complaints" element={<ComplaintsPage />} /><Route path="/notifications" element={<NotificationsPage />} /></Route></Route>
+    <Route element={<LegacyPortal />}><Route element={<AppLayout />}><Route path="/tasks" element={<TasksPage />} /><Route path="/nearby" element={<NearbyJobsPage />} /><Route path="/feed" element={<NetworkFeedPage />} /><Route path="/discover" element={<NetworkDiscoverPage />} /><Route path="/people/:id" element={<PublicProfilePage />} /><Route path="/messages" element={<ClientCommunicationPage />} /><Route path="/tasks/:id" element={<TaskDetailPage />} /><Route path="/profile" element={<ProfilePage />} /><Route path="/assignments" element={<AssignmentsPage />} /><Route path="/recommendations" element={<RecommendationsPage />} /><Route path="/skill-graph" element={<SkillGraphPage />} /><Route path="/reviews" element={<ReviewsPage />} /><Route path="/payments" element={<PaymentsPage />} /><Route path="/complaints" element={<ComplaintsPage />} /><Route path="/notifications" element={<NotificationsPage />} /></Route></Route>
     <Route path="*" element={<Navigate to="/auth" replace />} />
   </Routes>;
 }

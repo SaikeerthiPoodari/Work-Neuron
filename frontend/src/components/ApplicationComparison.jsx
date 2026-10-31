@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { get, post } from "../services/api";
 import { EmptyState, ErrorMessage } from "./StatusMessage";
 import { languageLabels } from "../i18n/languages";
+import ProfessionalPortfolio from "./ProfessionalPortfolio";
 
 const score = (value) => value == null ? "—" : `${Math.round(value)}%`;
 const rating = (value, count) => value == null ? "Not rated" : `${Number(value).toFixed(1)} / 5 (${count})`;
@@ -22,6 +23,7 @@ export default function ApplicationComparison() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [acting, setActing] = useState(null);
+  const [portfolioWorker, setPortfolioWorker] = useState(null);
 
   useEffect(() => {
     Promise.all([get("/tasks/"), get("/applications/")]).then(([clientTasks, applications]) => {
@@ -101,6 +103,7 @@ export default function ApplicationComparison() {
     <ErrorMessage message={error} />
     {notice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {tasks.length > 0 && <label className="block max-w-xl text-sm font-semibold text-slate-600">Your task<select className="field" value={taskId} onChange={(event) => setTaskId(event.target.value)}><option value="">Select a task</option>{tasks.map((task) => <option value={task.id} key={task.id}>{task.title} · {applicationCounts[task.id] || 0} applicants</option>)}</select></label>}
+    {portfolioWorker && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4" role="dialog" aria-modal="true"><div className="mx-auto max-w-3xl pt-8"><button className="mb-3 rounded-lg bg-white px-3 py-2 text-sm font-bold" onClick={() => setPortfolioWorker(null)}>Close portfolio</button><ProfessionalPortfolio workerId={portfolioWorker} /></div></div>}
     {loading ? <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500" role="status">Loading applicant comparison…</div> : !tasks.length ? <EmptyState>Create a task to start receiving worker applications.</EmptyState> : comparison && <>
       {!comparison.applicants.length ? <EmptyState>No applications received yet.</EmptyState> : <>
         <div className="flex flex-col gap-3 rounded-xl bg-slate-50 p-3 lg:flex-row lg:items-end">
@@ -111,7 +114,7 @@ export default function ApplicationComparison() {
           <label className="text-xs font-semibold text-slate-600">Has required skill<select className="field" value={requiredSkill} onChange={(event) => setRequiredSkill(event.target.value)}><option value="">Any skill</option>{comparison.task.required_skills.map((skill) => <option value={skill.id} key={skill.id}>{skill.name}</option>)}</select></label>
         </div>
         <p className="text-xs text-slate-500">Select 2–4 applicants to compare. Match scores use existing WorkNeuron weights and include their factors below.</p>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{applicants.map((item) => <ApplicantCard key={item.application.id} item={item} selected={selected.includes(item.application.id)} canSelect={selected.length < 4 || selected.includes(item.application.id)} onToggle={() => toggleSelected(item.application.id)} acting={acting === item.application.id} onDecide={decide} />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{applicants.map((item) => <ApplicantCard key={item.application.id} item={item} selected={selected.includes(item.application.id)} canSelect={selected.length < 4 || selected.includes(item.application.id)} onToggle={() => toggleSelected(item.application.id)} acting={acting === item.application.id} onDecide={decide} onPortfolio={() => setPortfolioWorker(item.worker.id)} />)}</div>
         {comparison.applicants.length === 1 && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Only one applicant is available. Comparison requires at least two applicants.</p>}
         {selectedApplicants.length >= 2 && <ComparisonTable applicants={selectedApplicants} task={comparison.task} />}
         {selectedApplicants.length < 2 && comparison.applicants.length > 1 && <p className="text-sm text-slate-500">Select at least two applicants to see the side-by-side comparison.</p>}
@@ -121,7 +124,7 @@ export default function ApplicationComparison() {
   </section>;
 }
 
-function ApplicantCard({ item, selected, canSelect, onToggle, acting, onDecide }) {
+function ApplicantCard({ item, selected, canSelect, onToggle, acting, onDecide, onPortfolio }) {
   const { worker, application, match } = item;
   return <article className="rounded-xl border border-slate-200 p-4">
     <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{worker.name}</p><p className="mt-0.5 text-xs text-slate-500">{worker.headline || "Worker profile"}</p></div><label className="flex items-center gap-2 text-xs font-semibold text-brand"><input type="checkbox" checked={selected} disabled={!canSelect} onChange={onToggle} aria-label={`Select ${worker.name} for comparison`} />Compare</label></div>
@@ -129,7 +132,7 @@ function ApplicantCard({ item, selected, canSelect, onToggle, acting, onDecide }
     <p className="mt-3 line-clamp-3 text-sm text-slate-600">{application.cover_letter}</p>
     <div className="mt-3 flex flex-wrap gap-1.5">{worker.skills.slice(0, 6).map((skill) => <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-600" key={skill.id}>{skill.name}</span>)}{!worker.skills.length && <span className="text-xs text-slate-400">No profile skills listed</span>}</div>
     <details className="mt-3"><summary className="cursor-pointer text-sm font-bold text-brand">View applicant profile</summary><div className="mt-2 space-y-1 text-sm text-slate-600"><p>{worker.bio || "No profile summary provided."}</p><p>Experience: {worker.experience_years == null ? "Not provided" : `${worker.experience_years} years`}</p><p>Availability: {worker.availability?.replaceAll("_", " ") || "Not provided"}</p>{worker.languages?.length > 0 && <p>Languages: {worker.languages.map((code) => languageLabels[code] || code).join(", ")}</p>}<p>Completed tasks: {worker.completed_tasks} · Relevant tasks: {worker.relevant_completed_tasks}</p>{worker.portfolio_url && <a className="font-semibold text-brand underline" href={worker.portfolio_url} target="_blank" rel="noreferrer">Portfolio</a>}</div></details>
-    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">{application.status === "ACCEPTED" ? <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">Worker selected</span> : <><button className="button-primary" disabled={acting} onClick={() => onDecide(application, "accept")}>{acting ? "Updating..." : "Select worker"}</button><button className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50" disabled={acting} onClick={() => onDecide(application, "reject")}>Reject</button></>}</div>
+    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3"><button className="button-secondary text-xs" onClick={onPortfolio}>View Professional Portfolio</button>{application.status === "ACCEPTED" ? <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">Worker selected</span> : <><button className="button-primary" disabled={acting} onClick={() => onDecide(application, "accept")}>{acting ? "Updating..." : "Select worker"}</button><button className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50" disabled={acting} onClick={() => onDecide(application, "reject")}>Reject</button></>}</div>
   </article>;
 }
 

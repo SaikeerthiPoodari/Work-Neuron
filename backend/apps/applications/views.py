@@ -11,7 +11,8 @@ from apps.tasks.models import Task
 from apps.assignments.models import Assignment
 from apps.reviews.models import Review
 from apps.reputation.models import ReputationScore
-from ai_engine.embeddings.service import EmbeddingUnavailableError
+from apps.profiles.services import refresh_professional_portfolio
+from apps.profiles.serializers import ProfessionalPortfolioSerializer
 from ai_engine.matching.scoring import score_worker_for_task
 
 from .models import Application
@@ -104,16 +105,14 @@ class ApplicationComparisonView(APIView):
         for application in applications:
             worker = application.worker
             profile = getattr(worker, "worker_profile", None)
+            portfolio = refresh_professional_portfolio(worker)
             worker_skill_records = list(worker.worker_skills.all())
             rating = ratings.get(worker.id)
             # Feed actual review and reputation aggregates into the same weighted matcher.
             # Its existing neutral default remains in effect when no such record exists.
             worker._matching_rating_score = float(rating["average"] * 20) if rating else 50.0
             worker._matching_reputation_score = float(reputation_scores.get(worker.id, 50.0))
-            try:
-                match = score_worker_for_task(task, worker)
-            except EmbeddingUnavailableError as exc:
-                return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            match = score_worker_for_task(task, worker)
 
             skill_match = match["skill_score"] if has_required_skills else None
             components = {key: match[key] for key in (
@@ -147,6 +146,7 @@ class ApplicationComparisonView(APIView):
                     "rating_count": rating["count"] if rating else 0,
                     "completed_tasks": completed.get(worker.id, 0),
                     "relevant_completed_tasks": relevant.get(worker.id, 0),
+                    "portfolio": ProfessionalPortfolioSerializer(portfolio, context={"request": request}).data,
                 },
                 "match": {
                     "skill_match": skill_match,
@@ -195,3 +195,29 @@ class ApplicationWithdrawView(APIView):
         except DjangoValidationError as exc:
             return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
         return Response(ApplicationSerializer(application).data)
+
+
+class ApplicationInviteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != User.Role.CLIENT:
+            return Response({"detail": "Only clients can invite workers to their tasks."}, status=status.HTTP_403_FORBIDDEN)
+        task = get_object_or_404(Task, pk=request.data.get("task"), owner=request.user)
+        worker = get_object_or_404(User, pk=request.data.get("worker"), role=User.Role.WORKER, is_active=True)
+        if task.status not in (Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED):
+            return Response({"detail": "This task is no longer accepting applications."}, status=status.HTTP_400_BAD_REQUEST)
+        application, created = Application.objects.get_or_create(task=task, worker=worker, defaults={"cover_letter": "Invited by the client from Recommended Workers."})
+        if not created and application.status not in (Application.Status.WITHDRAWN, Application.Status.REJECTED):
+            return Response({"detail": "This worker already has an active application for the task."}, status=status.HTTP_400_BAD_REQUEST)
+        if not created:
+            application.status = Application.Status.SUBMITTED
+            application.cover_letter = "Invited by the client from Recommended Workers."
+            application.save(update_fields=["status", "cover_letter", "updated_at"])
+        if task.status == Task.Status.OPEN:
+            task.status = Task.Status.APPLICATIONS_RECEIVED
+            task.save(update_fields=["status", "updated_at"])
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+        create_notification(worker, Notification.Kind.APPLICATION_RECEIVED, "Assignment invitation", f"You were invited to apply for {task.title}.", f"/tasks/{task.id}")
+        return Response(ApplicationSerializer(application).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

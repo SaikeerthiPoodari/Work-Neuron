@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from decimal import Decimal
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -8,6 +9,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import User
 from apps.tasks.models import Task
 from apps.tasks.services import transition_task
+from apps.payments.services import release_escrow_for_assignment
 
 from .models import Assignment, AssignmentLevel, AssignmentLevelTask
 from .permissions import IsWorkerRole
@@ -20,7 +22,7 @@ class AssignmentListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Assignment.objects.select_related("task", "worker", "application").prefetch_related("levels")
+        queryset = Assignment.objects.select_related("task", "worker", "worker__worker_profile", "application").prefetch_related("levels", "transactions")
         user = self.request.user
         if user.role == User.Role.WORKER:
             return queryset.filter(worker=user)
@@ -34,7 +36,7 @@ class AssignmentDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Assignment.objects.select_related("task", "worker", "application").prefetch_related("levels")
+        queryset = Assignment.objects.select_related("task", "worker", "worker__worker_profile", "application").prefetch_related("levels", "transactions")
         user = self.request.user
         if user.role == User.Role.WORKER:
             return queryset.filter(worker=user)
@@ -44,26 +46,37 @@ class AssignmentDetailView(generics.RetrieveAPIView):
 
 
 class AssignmentStartView(APIView):
-    permission_classes = [IsWorkerRole]
+    permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request, pk):
         assignment = generics.get_object_or_404(Assignment.objects.select_for_update().select_related("task"), pk=pk)
-        if assignment.worker_id != request.user.id:
-            return Response({"detail": "Only the assigned worker can start this task."}, status=status.HTTP_403_FORBIDDEN)
+        is_worker = assignment.worker_id == request.user.id
+        is_client = assignment.task.owner_id == request.user.id
+        if request.user.role != User.Role.ADMIN and not (is_worker or is_client):
+            return Response({"detail": "Only the assigned client or worker can confirm the start."}, status=status.HTTP_403_FORBIDDEN)
         if assignment.task.status != Task.Status.ASSIGNED:
-            return Response({"detail": "Only assigned tasks can be started."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Start confirmation is only available for assigned tasks."}, status=status.HTTP_400_BAD_REQUEST)
         if not assignment.levels.exists():
             return Response({"detail": "The client must configure assignment levels before work can start."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
+        funded = assignment.transactions.filter(status="VERIFIED", escrow_status="HELD").exists()
+        if not funded:
+            return Response({"detail": "The client must successfully fund the task before either party can start it."}, status=status.HTTP_400_BAD_REQUEST)
+        now = timezone.now()
+        if is_worker or request.user.role == User.Role.ADMIN:
+            assignment.worker_started_at = assignment.worker_started_at or now
+        if is_client or request.user.role == User.Role.ADMIN:
+            assignment.client_started_at = assignment.client_started_at or now
+        fields = ["worker_started_at", "client_started_at", "updated_at"]
+        if assignment.worker_started_at and assignment.client_started_at:
             transition_task(assignment.task, Task.Status.IN_PROGRESS)
-        except DjangoValidationError as exc:
-            return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
-        assignment.started_at = timezone.now()
-        assignment.save(update_fields=["started_at", "updated_at"])
+            assignment.started_at = assignment.started_at or now
+            fields += ["started_at"]
+        assignment.save(update_fields=fields)
         from apps.notifications.models import Notification
         from apps.notifications.services import create_notification
-        create_notification(assignment.task.owner, Notification.Kind.TASK_STATUS_CHANGED, "Task started", f"{request.user.email} started {assignment.task.title}.", f"/assignments/{assignment.id}")
+        other = assignment.worker if is_client else assignment.task.owner
+        create_notification(other, Notification.Kind.TASK_STATUS_CHANGED, "Start confirmation received", f"{request.user.email} confirmed the start of {assignment.task.title}." if assignment.task.status == Task.Status.ASSIGNED else f"{assignment.task.title} is now in progress.", f"/assignments/{assignment.id}")
         return Response(AssignmentSerializer(assignment).data)
 
 
@@ -94,8 +107,16 @@ class AssignmentLevelsConfigView(APIView):
             return Response({"detail": "Levels can only be configured before work starts."}, status=status.HTTP_400_BAD_REQUEST)
         serializer = AssignmentLevelsConfigSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        levels_data = serializer.validated_data["levels"]
+        if all(values.get("payment_amount") is None for values in levels_data):
+            levels_data[0]["payment_amount"] = assignment.task.budget
+            for values in levels_data[1:]:
+                values["payment_amount"] = Decimal("0")
+        total = sum((Decimal(values.get("payment_amount", 0)) for values in levels_data), Decimal("0"))
+        if total != assignment.task.budget:
+            return Response({"detail": f"Milestone allocations must total exactly {assignment.task.budget} {getattr(assignment.task, 'currency', 'INR')}."}, status=status.HTTP_400_BAD_REQUEST)
         assignment.levels.all().delete()
-        for index, values in enumerate(serializer.validated_data["levels"], start=1):
+        for index, values in enumerate(levels_data, start=1):
             tasks = list(dict.fromkeys(task.strip() for task in values.pop("tasks", []) if task.strip()))
             level = AssignmentLevel.objects.create(assignment=assignment, order=index, status=AssignmentLevel.Status.CURRENT if index == 1 else AssignmentLevel.Status.LOCKED, **values)
             AssignmentLevelTask.objects.bulk_create([AssignmentLevelTask(level=level, title=title) for title in tasks])
@@ -160,6 +181,27 @@ class AssignmentLevelTaskCompleteView(APIView):
         return Response(AssignmentSerializer(assignment).data)
 
 
+class ClientAssignmentLevelTaskCompleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk, level_id, task_id):
+        assignment = generics.get_object_or_404(Assignment.objects.select_for_update().select_related("task").prefetch_related("levels__checklist_items"), pk=pk)
+        if request.user.role != User.Role.ADMIN and assignment.task.owner_id != request.user.id:
+            return Response({"detail": "Only the client can confirm this checklist task."}, status=status.HTTP_403_FORBIDDEN)
+        level = generics.get_object_or_404(AssignmentLevel.objects.select_for_update(), pk=level_id, assignment=assignment)
+        if level.status not in (AssignmentLevel.Status.CURRENT, AssignmentLevel.Status.SUBMITTED):
+            return Response({"detail": "Only the active level can be confirmed."}, status=status.HTTP_400_BAD_REQUEST)
+        item = generics.get_object_or_404(AssignmentLevelTask.objects.select_for_update(), pk=task_id, level=level)
+        if not item.client_completed:
+            item.client_completed = True
+            item.client_completed_at = timezone.now()
+            item.client_completed_by = request.user
+            item.save(update_fields=["client_completed", "client_completed_at", "client_completed_by"])
+        assignment._prefetched_objects_cache.pop("levels", None)
+        return Response(AssignmentSerializer(assignment).data)
+
+
 class AssignmentLevelReviewView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -173,6 +215,8 @@ class AssignmentLevelReviewView(APIView):
             return Response({"detail": "This level has no submission awaiting review."}, status=status.HTTP_400_BAD_REQUEST)
         serializer = LevelReviewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        if serializer.validated_data["action"] == "approve" and level.checklist_items.filter(client_completed=False).exists():
+            return Response({"detail": "Confirm every checklist item as the client before approving this level."}, status=status.HTTP_400_BAD_REQUEST)
         level.feedback = serializer.validated_data.get("feedback", "")
         level.reviewed_at = timezone.now()
         if serializer.validated_data["action"] == "changes":
@@ -203,8 +247,11 @@ class AssignmentLevelReviewView(APIView):
         from apps.notifications.models import Notification
         from apps.notifications.services import create_notification
         if done == total:
+            release_escrow_for_assignment(assignment)
             from apps.search.services import record_task_event
             record_task_event(assignment.worker, assignment.task, "COMPLETE")
+            from apps.profiles.services import refresh_professional_portfolio
+            refresh_professional_portfolio(assignment.worker)
             create_notification(assignment.worker, Notification.Kind.TASK_COMPLETED, "Task completed", f"{assignment.task.title} was marked completed.", f"/assignments/{assignment.id}")
         elif serializer.validated_data["action"] == "approve":
             create_notification(assignment.worker, Notification.Kind.TASK_STATUS_CHANGED, "Next level unlocked", f"Level {level.order + 1} is ready for {assignment.task.title}.", f"/assignments/{assignment.id}")
@@ -232,8 +279,11 @@ class AssignmentCompleteView(APIView):
         assignment.client_feedback = serializer.validated_data.get("client_feedback", "")
         assignment.completed_at = timezone.now()
         assignment.save(update_fields=["client_feedback", "completed_at", "updated_at"])
+        release_escrow_for_assignment(assignment)
         from apps.search.services import record_task_event
         record_task_event(assignment.worker, assignment.task, "COMPLETE")
+        from apps.profiles.services import refresh_professional_portfolio
+        refresh_professional_portfolio(assignment.worker)
         from apps.notifications.models import Notification
         from apps.notifications.services import create_notification
         create_notification(assignment.worker, Notification.Kind.TASK_COMPLETED, "Task completed", f"{assignment.task.title} was marked completed.", f"/assignments/{assignment.id}")

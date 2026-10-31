@@ -107,6 +107,14 @@ class PaymentApiTests(APITestCase):
         response = self.client.get(reverse("employer-dashboard"))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_worker_payment_analytics_uses_real_transaction_records(self):
+        Transaction.objects.create(assignment=self.assignment, payer=self.client_user, amount="1234.56", provider_order_id="order_analytics", status=Transaction.Status.VERIFIED)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("payment-analytics"), {"range": "6m"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["summary"]["total_earnings"], "1234.56")
+        self.assertEqual(response.data["summary"]["completed_payments"], 1)
+
     def test_admin_employer_dashboard_has_platform_financial_scope(self):
         admin = User.objects.create_superuser(email="payments-admin@example.com", password="secure-pass-123")
         Transaction.objects.create(

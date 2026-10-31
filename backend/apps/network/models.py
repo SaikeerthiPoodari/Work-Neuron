@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 
@@ -16,7 +17,12 @@ class Post(models.Model):
     kind = models.CharField(max_length=24, choices=Kind.choices, default=Kind.UPDATE)
     body = models.TextField(max_length=5000)
     title = models.CharField(max_length=180, blank=True)
+    hashtags = models.CharField(max_length=500, blank=True)
     portfolio_url = models.URLField(blank=True)
+    link_url = models.URLField(blank=True)
+    image = models.ImageField(upload_to="network/posts/", blank=True, validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])])
+    video_url = models.URLField(blank=True)
+    shares_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

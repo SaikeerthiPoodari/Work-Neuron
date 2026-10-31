@@ -24,8 +24,8 @@ def amount_in_paise(amount):
 
 
 def create_test_order(assignment, payer):
-    if assignment.task.status != "COMPLETED":
-        raise ValidationError("Payment can be created only after task completion.")
+    if assignment.task.status not in ("ASSIGNED", "IN_PROGRESS", "SUBMITTED", "COMPLETED"):
+        raise ValidationError("Payment can only be created for an assigned task.")
     existing = assignment.transactions.filter(status__in=[Transaction.Status.CREATED, Transaction.Status.VERIFIED]).first()
     if existing:
         return existing, None
@@ -60,8 +60,16 @@ def verify_test_payment(transaction, order_id, payment_id, signature):
     })
     transaction.provider_payment_id = payment_id
     transaction.status = Transaction.Status.VERIFIED
-    transaction.save(update_fields=["provider_payment_id", "status", "updated_at"])
+    transaction.escrow_status = Transaction.EscrowStatus.HELD
+    transaction.save(update_fields=["provider_payment_id", "status", "escrow_status", "updated_at"])
     return transaction
+
+
+def release_escrow_for_assignment(assignment):
+    """Release verified funds only after the assignment reaches both-party completion."""
+    transactions = assignment.transactions.filter(status=Transaction.Status.VERIFIED, escrow_status=Transaction.EscrowStatus.HELD)
+    updated = transactions.update(escrow_status=Transaction.EscrowStatus.RELEASED)
+    return updated
 
 
 def refund_test_payment(transaction):

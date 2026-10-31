@@ -28,7 +28,14 @@ class ClientProfile(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
     )
+    cover_image = models.ImageField(upload_to="clients/covers/", blank=True, validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])])
     employer_type = models.CharField(max_length=24, choices=EmployerType.choices, blank=True)
+    bank_account_name = models.CharField(max_length=120, blank=True)
+    bank_name = models.CharField(max_length=120, blank=True)
+    bank_account_number = models.CharField(max_length=34, blank=True)
+    bank_account_type = models.CharField(max_length=20, blank=True)
+    bank_ifsc = models.CharField(max_length=20, blank=True)
+    upi_id = models.CharField(max_length=120, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -61,6 +68,7 @@ class WorkerProfile(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
     )
+    cover_image = models.ImageField(upload_to="workers/covers/", blank=True, validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])])
     education = models.CharField(max_length=160, blank=True)
     interests = models.TextField(blank=True)
     languages = models.JSONField(default=list, blank=True)
@@ -75,7 +83,33 @@ class WorkerProfile(models.Model):
     preferred_radius_km = models.PositiveIntegerField(default=25, validators=[MinValueValidator(1), MaxValueValidator(500)])
     preferred_job_location = models.CharField(max_length=160, blank=True)
     remote_preference = models.CharField(max_length=10, choices=RemotePreference.choices, default=RemotePreference.ANY)
+    bank_account_name = models.CharField(max_length=120, blank=True)
+    bank_name = models.CharField(max_length=120, blank=True)
+    bank_account_number = models.CharField(max_length=34, blank=True)
+    bank_account_type = models.CharField(max_length=20, blank=True)
+    bank_ifsc = models.CharField(max_length=20, blank=True)
+    upi_id = models.CharField(max_length=120, blank=True)
+    payout_qr_token = models.CharField(max_length=80, unique=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Worker profile: {self.user.email}"
+
+
+class ProfessionalPortfolio(models.Model):
+    """Generated, read-only professional summary for a worker.
+
+    The source records remain authoritative; this model only caches the generated
+    summary and the timestamp/count used to explain when it was refreshed.
+    """
+    worker = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="professional_portfolio")
+    summary = models.TextField(blank=True)
+    generated_at = models.DateTimeField(null=True, blank=True)
+    source_assignment_count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"Professional portfolio: {self.worker.email}"

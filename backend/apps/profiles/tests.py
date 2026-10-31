@@ -3,6 +3,10 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
+from apps.applications.models import Application
+from apps.tasks.models import Task
+from django.utils import timezone
+from datetime import timedelta
 
 
 class ProfileApiTests(APITestCase):
@@ -62,3 +66,14 @@ class ProfileApiTests(APITestCase):
         self.authenticate(self.worker)
         response = self.client.patch(reverse("my-profile"), {"languages": ["en", "xx"]}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_worker_portfolio_is_readable_and_client_access_is_scoped_to_applicants(self):
+        self.authenticate(self.worker)
+        own = self.client.get(reverse("my-portfolio"))
+        self.assertEqual(own.status_code, status.HTTP_200_OK)
+        self.assertIn("summary", own.data)
+        task = Task.objects.create(owner=self.client_user, title="Portfolio review", description="Review portfolio", budget="100.00", deadline=timezone.now() + timedelta(days=2))
+        Application.objects.create(task=task, worker=self.worker, cover_letter="I can help.")
+        self.authenticate(self.client_user)
+        allowed = self.client.get(reverse("worker-portfolio", kwargs={"user_id": self.worker.id}))
+        self.assertEqual(allowed.status_code, status.HTTP_200_OK)

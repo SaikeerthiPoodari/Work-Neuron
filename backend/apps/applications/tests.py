@@ -66,3 +66,11 @@ class ApplicationApiTests(APITestCase):
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, Task.Status.OPEN)
 
+    def test_client_can_invite_recommended_worker_once(self):
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.post(reverse("application-invite"), {"task": self.task.id, "worker": self.worker.id}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Application.objects.filter(task=self.task, worker=self.worker).count(), 1)
+        duplicate = self.client.post(reverse("application-invite"), {"task": self.task.id, "worker": self.worker.id}, format="json")
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+

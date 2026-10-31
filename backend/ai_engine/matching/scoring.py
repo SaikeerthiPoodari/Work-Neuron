@@ -6,7 +6,7 @@ from math import asin, cos, radians, sin, sqrt
 
 from sklearn.metrics.pairwise import cosine_similarity
 
-from ai_engine.embeddings.service import SentenceEmbeddingService
+from ai_engine.embeddings.service import EmbeddingUnavailableError, SentenceEmbeddingService
 from apps.profiles.languages import LANGUAGE_LABELS
 
 
@@ -67,9 +67,17 @@ def _task_text(task):
 
 
 def _semantic_score(task_text, worker_text, embedder):
-    embeddings = embedder.encode([task_text, worker_text])
-    similarity = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
-    return max(0.0, min(100.0, ((similarity + 1) / 2) * 100))
+    try:
+        embeddings = embedder.encode([task_text, worker_text])
+        similarity = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
+        return max(0.0, min(100.0, ((similarity + 1) / 2) * 100))
+    except EmbeddingUnavailableError:
+        tokenize = lambda value: {token for token in re.findall(r"[a-z0-9]+", value.lower()) if len(token) > 2}
+        left, right = tokenize(task_text), tokenize(worker_text)
+        if not left or not right:
+            return 50.0
+        overlap = len(left & right) / max(1, len(left | right))
+        return round(35.0 + overlap * 65.0, 2)
 
 
 def _structured_scores(task, worker):

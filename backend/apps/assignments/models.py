@@ -13,6 +13,8 @@ class Assignment(models.Model):
     submission = models.TextField(blank=True)
     client_feedback = models.TextField(blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
+    worker_started_at = models.DateTimeField(null=True, blank=True)
+    client_started_at = models.DateTimeField(null=True, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -38,6 +40,8 @@ class AssignmentLevel(models.Model):
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)
     requirements = models.TextField(blank=True)
+    expected_completion_date = models.DateField(null=True, blank=True)
+    payment_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.LOCKED)
     submission = models.TextField(blank=True)
     feedback = models.TextField(blank=True)
@@ -59,6 +63,9 @@ class AssignmentLevelTask(models.Model):
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
     completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="completed_assignment_tasks")
+    client_completed = models.BooleanField(default=False)
+    client_completed_at = models.DateTimeField(null=True, blank=True)
+    client_completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="client_completed_assignment_tasks")
 
     class Meta:
         ordering = ["id"]

@@ -47,11 +47,13 @@ class InterviewSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "organizer", "status", "created_at")
 
     def validate(self, attrs):
-        if attrs["ends_at"] <= attrs["starts_at"]:
+        starts_at = attrs.get("starts_at", self.instance.starts_at if self.instance else None)
+        ends_at = attrs.get("ends_at", self.instance.ends_at if self.instance else None)
+        if ends_at <= starts_at:
             raise serializers.ValidationError("Interview end time must be after the start time.")
-        if attrs["starts_at"] <= timezone.now():
+        if starts_at <= timezone.now():
             raise serializers.ValidationError("Interview start time must be in the future.")
-        application = attrs["application"]
+        application = attrs.get("application", self.instance.application if self.instance else None)
         request = self.context["request"]
         if request.user.role == "WORKER":
             raise serializers.ValidationError("Only the client who owns the job may schedule an interview.")

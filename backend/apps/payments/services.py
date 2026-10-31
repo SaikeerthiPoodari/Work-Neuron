@@ -48,6 +48,8 @@ def create_test_order(assignment, payer):
 
 
 def verify_test_payment(transaction, order_id, payment_id, signature):
+    if transaction.status == Transaction.Status.REFUNDED:
+        raise ValidationError("A refunded transaction cannot be verified again.")
     if transaction.provider_order_id != order_id:
         raise ValidationError("Payment order does not match the transaction.")
     client = razorpay_client()
@@ -59,5 +61,19 @@ def verify_test_payment(transaction, order_id, payment_id, signature):
     transaction.provider_payment_id = payment_id
     transaction.status = Transaction.Status.VERIFIED
     transaction.save(update_fields=["provider_payment_id", "status", "updated_at"])
+    return transaction
+
+
+def refund_test_payment(transaction):
+    if transaction.status == Transaction.Status.REFUNDED:
+        return transaction
+    if transaction.status != Transaction.Status.VERIFIED:
+        raise ValidationError("Only a verified payment can be refunded.")
+    if not transaction.provider_payment_id:
+        raise ValidationError("The payment provider has not supplied a payment ID for this transaction.")
+    client = razorpay_client()
+    client.payment.refund(transaction.provider_payment_id, {"amount": amount_in_paise(transaction.amount)})
+    transaction.status = Transaction.Status.REFUNDED
+    transaction.save(update_fields=["status", "updated_at"])
     return transaction
 

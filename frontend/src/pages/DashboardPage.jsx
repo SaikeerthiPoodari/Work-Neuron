@@ -10,8 +10,9 @@ import WorkerLanguageSummary from "../components/WorkerLanguageSummary";
 import { useI18n } from "../i18n/I18nContext";
 
 export default function DashboardPage() {
-  const { user } = useAuth(); const [data, setData] = useState(null); const [error, setError] = useState("");
-  useEffect(() => { const load = async () => { try { if (user.role === "ADMIN") setData({ analytics: await get("/analytics/summary/") }); else { const requests = [get("/tasks/"), get("/assignments/"), get("/notifications/?unread=true")]; if (user.role === "CLIENT") requests.push(get("/payments/employer-dashboard/"), get("/applications/"), get("/reviews/")); const [tasks, assignments, notifications, employer, applications, reviews] = await Promise.all(requests); setData({ tasks, assignments, notifications, employer, applications, reviews }); } } catch (err) { setError(err.message); } }; load(); }, [user.role]);
+  const { user } = useAuth(); const [data, setData] = useState(null); const [error, setError] = useState(""); const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => { const refresh = () => setRefreshKey((value) => value + 1); window.addEventListener("workneuron-notification", refresh); return () => window.removeEventListener("workneuron-notification", refresh); }, []);
+  useEffect(() => { const load = async () => { try { if (user.role === "ADMIN") setData({ analytics: await get("/analytics/summary/") }); else { const requests = [get("/tasks/"), get("/assignments/"), get("/notifications/?unread=true")]; if (user.role === "CLIENT") requests.push(get("/payments/employer-dashboard/"), get("/applications/"), get("/reviews/")); const [tasks, assignments, notifications, employer, applications, reviews] = await Promise.all(requests); setData({ tasks, assignments, notifications, employer, applications, reviews }); } } catch (err) { setError(err.message); } }; load(); }, [user.role, refreshKey]);
   if (!data) return error ? <ErrorMessage message={error} /> : <div className="py-10 text-slate-500" role="status">Loading your workspace...</div>;
   if (user.role === "ADMIN") return <AdminOverview analytics={data.analytics} />;
   if (user.role === "CLIENT") return <><ErrorMessage message={error} /><ClientDashboard user={user} data={data} /></>;

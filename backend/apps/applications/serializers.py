@@ -10,14 +10,16 @@ class ApplicationSerializer(serializers.ModelSerializer):
     task_title = serializers.CharField(source="task.title", read_only=True)
     worker_email = serializers.EmailField(source="worker.email", read_only=True)
     worker_id = serializers.IntegerField(source="worker.id", read_only=True)
+    task_owner_id = serializers.IntegerField(source="task.owner_id", read_only=True)
+    task_owner_email = serializers.EmailField(source="task.owner.email", read_only=True)
 
     class Meta:
         model = Application
         fields = (
-            "id", "task", "task_title", "worker_email", "worker_id", "cover_letter", "proposed_budget", "status",
+            "id", "task", "task_title", "worker_email", "worker_id", "task_owner_id", "task_owner_email", "cover_letter", "proposed_budget", "status",
             "created_at", "updated_at",
         )
-        read_only_fields = ("id", "task_title", "worker_email", "worker_id", "status", "created_at", "updated_at")
+        read_only_fields = ("id", "task_title", "worker_email", "worker_id", "task_owner_id", "task_owner_email", "status", "created_at", "updated_at")
 
     def validate_task(self, task):
         if task.status not in (Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED):

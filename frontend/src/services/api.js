@@ -1,5 +1,20 @@
 const API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api").replace(/\/+$/, "");
 
+export async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem("workneuron_refresh");
+  if (!refreshToken) throw new Error("Your session has expired.");
+  const response = await fetch(`${API_BASE}/auth/refresh/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh: refreshToken }) });
+  if (!response.ok) {
+    localStorage.removeItem("workneuron_access");
+    localStorage.removeItem("workneuron_refresh");
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+  const data = await response.json();
+  localStorage.setItem("workneuron_access", data.access);
+  if (data.refresh) localStorage.setItem("workneuron_refresh", data.refresh);
+  return data.access;
+}
+
 function formatApiError(data, status) {
   if (data?.detail) return typeof data.detail === "string" ? data.detail : formatApiError(data.detail, status);
   if (data && typeof data === "object") {
@@ -16,15 +31,23 @@ function formatApiError(data, status) {
 }
 
 export async function api(path, options = {}) {
-  const token = localStorage.getItem("workneuron_access");
-  const headers = { ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(options.headers || {}) };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  let response;
-  try {
-    response = await fetch(`${API_BASE}${path}`, { ...options, headers, body: options.body && !(options.body instanceof FormData) ? JSON.stringify(options.body) : options.body });
-  } catch (error) {
-    if (error.name === "AbortError") throw error;
-    throw new Error("Unable to connect to the server. Please make sure the backend is running.");
+  const request = async (token) => {
+    const headers = { ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(options.headers || {}) };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    try {
+      return await fetch(`${API_BASE}${path}`, { ...options, headers, body: options.body && !(options.body instanceof FormData) ? JSON.stringify(options.body) : options.body });
+    } catch (error) {
+      if (error.name === "AbortError") throw error;
+      throw new Error("Unable to connect to the server. Please make sure the backend is running.");
+    }
+  };
+  let response = await request(localStorage.getItem("workneuron_access"));
+  if (response.status === 401 && !path.startsWith("/auth/") && localStorage.getItem("workneuron_refresh")) {
+    try {
+      response = await request(await refreshAccessToken());
+    } catch (error) {
+      if (error.name === "AbortError") throw error;
+    }
   }
   const text = await response.text();
   let data = null;

@@ -23,6 +23,11 @@ class ClientProfile(models.Model):
     phone = models.CharField(max_length=30, blank=True)
     location = models.CharField(max_length=160, blank=True)
     website = models.URLField(blank=True)
+    profile_photo = models.ImageField(
+        upload_to="clients/profile-photos/",
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
+    )
     employer_type = models.CharField(max_length=24, choices=EmployerType.choices, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 

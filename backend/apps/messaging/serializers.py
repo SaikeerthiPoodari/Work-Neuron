@@ -19,13 +19,23 @@ class MessageSerializer(serializers.ModelSerializer):
         request = self.context["request"]
         task = attrs["task"]
         recipient = attrs["recipient"]
+        application = attrs.get("application")
         if request.user.role == "CLIENT" and task.owner_id != request.user.id:
             raise serializers.ValidationError("Clients may only message on their own jobs.")
-        if request.user.role == "WORKER" and not task.applications.filter(worker=request.user).exists():
-            raise serializers.ValidationError("Workers may only message on jobs they applied to.")
+        if request.user.role == "CLIENT" and application is None:
+            raise serializers.ValidationError("Clients must select an application when messaging a worker.")
+        if request.user.role == "WORKER":
+            if not task.applications.filter(worker=request.user).exists():
+                raise serializers.ValidationError("Workers may only message on jobs they applied to.")
+            if application is not None and application.worker_id != request.user.id:
+                raise serializers.ValidationError("Workers may only message on their own application.")
+            if recipient.id != task.owner_id:
+                raise serializers.ValidationError("Workers may only message the client who owns the job.")
+        if request.user.role == "CLIENT" and recipient.id != application.worker_id:
+            raise serializers.ValidationError("Clients may only message the worker on the selected application.")
         if recipient.id == request.user.id:
             raise serializers.ValidationError("You cannot message yourself.")
-        if attrs.get("application") and attrs["application"].task_id != task.id:
+        if application and application.task_id != task.id:
             raise serializers.ValidationError("The application must belong to the selected job.")
         return attrs
 
@@ -43,6 +53,8 @@ class InterviewSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Interview start time must be in the future.")
         application = attrs["application"]
         request = self.context["request"]
+        if request.user.role == "WORKER":
+            raise serializers.ValidationError("Only the client who owns the job may schedule an interview.")
         if request.user.role == "CLIENT" and application.task.owner_id != request.user.id:
             raise serializers.ValidationError("You may only schedule interviews for your own jobs.")
         if request.user.role == "WORKER" and application.worker_id != request.user.id:

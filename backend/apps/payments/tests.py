@@ -107,6 +107,81 @@ class PaymentApiTests(APITestCase):
         response = self.client.get(reverse("employer-dashboard"))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_admin_employer_dashboard_has_platform_financial_scope(self):
+        admin = User.objects.create_superuser(email="payments-admin@example.com", password="secure-pass-123")
+        Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56",
+            provider_order_id="order_admin_dashboard", status=Transaction.Status.VERIFIED,
+        )
+        self.client.force_authenticate(user=admin)
+        response = self.client.get(reverse("employer-dashboard"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["summary"]["total_earnings"], "1234.56")
+        self.assertEqual(response.data["verification"]["status"], "ADMIN_SCOPE")
+
+    @patch("apps.payments.services.razorpay_client")
+    def test_client_can_refund_verified_payment_and_worker_is_notified(self, client_factory):
+        transaction = Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56",
+            provider_order_id="order_refund", provider_payment_id="pay_refund", status=Transaction.Status.VERIFIED,
+        )
+        fake_client = Mock()
+        client_factory.return_value = fake_client
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.post(reverse("payment-refund", kwargs={"pk": transaction.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.status, Transaction.Status.REFUNDED)
+        fake_client.payment.refund.assert_called_once()
+        self.assertTrue(Notification.objects.filter(recipient=self.worker, kind=Notification.Kind.PAYMENT_UPDATE, message__icontains="refunded").exists())
+
+    def test_worker_cannot_refund_client_payment(self):
+        transaction = Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56",
+            provider_order_id="order_refund_forbidden", provider_payment_id="pay_refund_forbidden", status=Transaction.Status.VERIFIED,
+        )
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.post(reverse("payment-refund", kwargs={"pk": transaction.id}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("apps.payments.services.razorpay_client")
+    def test_refund_is_idempotent_for_already_refunded_payment(self, client_factory):
+        transaction = Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56",
+            provider_order_id="order_refund_idempotent", provider_payment_id="pay_refund_idempotent", status=Transaction.Status.REFUNDED,
+        )
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.post(reverse("payment-refund", kwargs={"pk": transaction.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        client_factory.assert_not_called()
+
+    @patch("apps.payments.services.razorpay_client")
+    def test_refunded_payment_cannot_be_verified_again(self, client_factory):
+        transaction = Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56",
+            provider_order_id="order_refunded_replay", provider_payment_id="pay_refunded_replay", status=Transaction.Status.REFUNDED,
+        )
+        self.client.force_authenticate(user=self.client_user)
+        with patch.dict(os.environ, {"RAZORPAY_KEY_ID": "rzp_test_key", "RAZORPAY_KEY_SECRET": "secret"}, clear=False):
+            response = self.client.post(reverse("payment-verify"), {"transaction_id": transaction.id, "razorpay_order_id": transaction.provider_order_id, "razorpay_payment_id": "pay_again", "razorpay_signature": "signature"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.status, Transaction.Status.REFUNDED)
+        client_factory.assert_not_called()
+
+    def test_late_capture_webhook_cannot_unrefund_transaction(self):
+        transaction = Transaction.objects.create(
+            assignment=self.assignment, payer=self.client_user, amount="1234.56",
+            provider_order_id="order_refunded_webhook", provider_payment_id="pay_refunded_webhook", status=Transaction.Status.REFUNDED,
+        )
+        payload = json.dumps({"event": "payment.captured", "payload": {"payment": {"entity": {"order_id": transaction.provider_order_id, "id": transaction.provider_payment_id}}}}).encode()
+        signature = hmac.new(b"webhook-secret", payload, hashlib.sha256).hexdigest()
+        with patch.dict(os.environ, {"RAZORPAY_WEBHOOK_SECRET": "webhook-secret"}, clear=False):
+            response = self.client.post(reverse("payment-webhook"), payload, content_type="application/json", HTTP_X_RAZORPAY_SIGNATURE=signature)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.status, Transaction.Status.REFUNDED)
+
     def test_webhook_signature_is_required_and_captured_event_is_idempotent(self):
         transaction = Transaction.objects.create(
             assignment=self.assignment, payer=self.client_user, amount="1234.56", provider_order_id="order_webhook",

@@ -29,6 +29,10 @@ function MapViewport({ jobs, workerPosition, selectedJob, markerRefs }) {
   const map = useMap();
   const selectedKey = selectedJob?.id;
   useEffect(() => {
+    const timer = window.setTimeout(() => map.invalidateSize(), 50);
+    return () => window.clearTimeout(timer);
+  }, [map]);
+  useEffect(() => {
     if (selectedJob && hasCoordinates(selectedJob)) {
       const point = [Number(selectedJob.latitude), Number(selectedJob.longitude)];
       map.flyTo(point, Math.max(map.getZoom(), 13), { duration: 0.35 });

@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.analytics",
     "apps.assistant",
     "apps.messaging",
+    "apps.network",
 ]
 
 MIDDLEWARE = [
@@ -86,11 +87,19 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL], "capacity": int(os.getenv("REDIS_CHANNEL_CAPACITY", "1000"))},
+        }
     }
-}
+else:
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+
+if REDIS_URL:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 
 DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
 DATABASE_URL = os.getenv("DATABASE_URL")

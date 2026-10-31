@@ -1,0 +1,17 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { get } from "../services/api";
+import { EmptyState, ErrorMessage } from "../components/StatusMessage";
+
+export default function PublicProfilePage() {
+  const { id } = useParams();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => { get(`/network/users/${id}/profile/`).then(setData).catch((err) => setError(err.message)); }, [id]);
+  if (error) return <ErrorMessage message={error} />;
+  if (!data) return <div className="py-10 text-slate-500" role="status">Loading profile...</div>;
+  const image = data.profile?.profile_photo || data.profile?.profile_photo_url;
+  return <div className="mx-auto max-w-4xl space-y-6"><section className="card"><div className="flex flex-col gap-4 sm:flex-row sm:items-center"><div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-3xl font-black text-brand">{image ? <img src={image} alt={data.user.name} className="h-full w-full object-cover" /> : data.user.name[0].toUpperCase()}</div><div><p className="text-xs font-bold uppercase tracking-wide text-brand">{data.user.role}</p><h1 className="text-3xl font-black">{data.user.name}</h1><p className="mt-1 text-slate-500">{data.user.headline || "WorkNeuron member"}</p><p className="text-sm text-slate-500">{data.user.location || "Location not provided"}</p></div></div><div className="mt-5 grid grid-cols-3 gap-3"><Stat label="Followers" value={data.followers.length} /><Stat label="Following" value={data.following.length} /><Stat label="Connections" value={data.connections.length} /></div></section><section className="card"><h2 className="text-lg font-bold">About</h2><p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{data.profile?.bio || "This member has not added a bio yet."}</p>{data.profile?.website && <a className="mt-3 inline-block text-sm font-bold text-brand" href={data.profile.website} target="_blank" rel="noreferrer">Website</a>}{data.profile?.portfolio_url && <a className="ml-4 inline-block text-sm font-bold text-brand" href={data.profile.portfolio_url} target="_blank" rel="noreferrer">Portfolio</a>}</section>{data.verification && <section className="card"><h2 className="font-bold">Verification</h2><p className="mt-2 text-sm text-slate-600"><b>{data.verification.status}</b>{data.verification.badge_text ? ` · ${data.verification.badge_text}` : ""}</p></section>}<section className="card"><h2 className="text-lg font-bold">Posts, projects, and certifications</h2>{data.posts.length ? <div className="mt-4 space-y-3">{data.posts.map((post) => <article className="rounded-xl bg-slate-50 p-4" key={post.id}><p className="text-xs font-bold uppercase tracking-wide text-brand">{post.kind.replaceAll("_", " ")}</p>{post.title && <h3 className="mt-1 font-bold">{post.title}</h3>}<p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{post.body}</p>{post.portfolio_url && <a className="mt-2 inline-block text-sm font-bold text-brand" href={post.portfolio_url} target="_blank" rel="noreferrer">Open project →</a>}</article>)}</div> : <EmptyState>No public posts yet.</EmptyState>}</section><Link className="button-secondary inline-block" to="../discover">Back to discover</Link></div>;
+}
+
+function Stat({ label, value }) { return <div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-black text-brand">{value}</p></div>; }

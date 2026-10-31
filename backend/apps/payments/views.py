@@ -16,7 +16,7 @@ from apps.tasks.models import Task
 
 from .models import Transaction
 from .serializers import PaymentVerifySerializer, TransactionSerializer
-from .services import PaymentConfigurationError, create_test_order, verify_test_payment
+from .services import PaymentConfigurationError, create_test_order, refund_test_payment, verify_test_payment
 
 
 class TransactionListView(generics.ListAPIView):
@@ -51,15 +51,17 @@ class EmployerDashboardView(APIView):
     def get(self, request):
         if request.user.role not in (User.Role.CLIENT, User.Role.ADMIN):
             return Response({"detail": "Only employers or administrators can view employer financials."}, status=status.HTTP_403_FORBIDDEN)
-        assignments = Assignment.objects.select_related("task", "worker").filter(task__owner=request.user)
-        transactions = Transaction.objects.select_related("assignment__task", "assignment__worker").filter(assignment__task__owner=request.user)
+        owner_filter = {} if request.user.role == User.Role.ADMIN else {"task__owner": request.user}
+        assignments = Assignment.objects.select_related("task", "worker").filter(**owner_filter)
+        transaction_filter = {} if request.user.role == User.Role.ADMIN else {"assignment__task__owner": request.user}
+        transactions = Transaction.objects.select_related("assignment__task", "assignment__worker").filter(**transaction_filter)
         verified = transactions.filter(status=Transaction.Status.VERIFIED)
         completed = assignments.filter(task__status=Task.Status.COMPLETED)
-        active_tasks = Task.objects.filter(owner=request.user).exclude(status__in=[Task.Status.COMPLETED, Task.Status.CANCELLED]).prefetch_related("applications")
+        active_tasks = Task.objects.filter(**({} if request.user.role == User.Role.ADMIN else {"owner": request.user})).exclude(status__in=[Task.Status.COMPLETED, Task.Status.CANCELLED]).prefetch_related("applications")
         from apps.applications.models import Application
-        applications = Application.objects.filter(task__owner=request.user)
+        applications = Application.objects.filter(**({} if request.user.role == User.Role.ADMIN else {"task__owner": request.user}))
         from apps.complaints.models import Complaint
-        reports = Complaint.objects.filter(task__owner=request.user)
+        reports = Complaint.objects.filter(**({} if request.user.role == User.Role.ADMIN else {"task__owner": request.user}))
         verification = getattr(request.user, "employer_verification", None)
         money = lambda value: f"{value or 0:.2f}"
         return Response({
@@ -76,7 +78,7 @@ class EmployerDashboardView(APIView):
             "application_count": applications.count(),
             "selected_worker_count": applications.filter(status=Application.Status.ACCEPTED).values("worker_id").distinct().count(),
             "report_count": reports.count(),
-            "verification": {"status": verification.status, "badge_text": verification.badge_text} if verification else {"status": "UNVERIFIED", "badge_text": ""},
+            "verification": {"status": verification.status, "badge_text": verification.badge_text} if verification else {"status": "ADMIN_SCOPE" if request.user.role == User.Role.ADMIN else "UNVERIFIED", "badge_text": ""},
             "payment_history": TransactionSerializer(transactions, many=True).data,
         })
 
@@ -127,12 +129,37 @@ class PaymentVerifyView(APIView):
                 detail = exc.messages[0]
             else:
                 detail = str(exc)
-            transaction.status = Transaction.Status.FAILED
-            transaction.save(update_fields=["status", "updated_at"])
+            if transaction.status != Transaction.Status.REFUNDED:
+                transaction.status = Transaction.Status.FAILED
+                transaction.save(update_fields=["status", "updated_at"])
             return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
         from apps.notifications.models import Notification
         from apps.notifications.services import create_notification
         create_notification(transaction.assignment.worker, Notification.Kind.PAYMENT_UPDATE, "Payment verified", f"Payment for {transaction.assignment.task.title} was verified.", f"/payments/{transaction.id}")
+        return Response(TransactionSerializer(transaction).data)
+
+
+class PaymentRefundView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "sensitive"
+
+    def post(self, request, pk):
+        transaction = get_object_or_404(Transaction.objects.select_related("assignment__task", "assignment__worker"), pk=pk)
+        if request.user.role != User.Role.ADMIN and transaction.assignment.task.owner_id != request.user.id:
+            return Response({"detail": "Only the task owner or an administrator can refund this payment."}, status=status.HTTP_403_FORBIDDEN)
+        was_refunded = transaction.status == Transaction.Status.REFUNDED
+        try:
+            transaction = refund_test_payment(transaction)
+        except PaymentConfigurationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except DjangoValidationError as exc:
+            return Response({"detail": exc.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({"detail": "The payment provider could not complete the refund. The payment remains verified."}, status=status.HTTP_502_BAD_GATEWAY)
+        if not was_refunded:
+            from apps.notifications.models import Notification
+            from apps.notifications.services import create_notification
+            create_notification(transaction.assignment.worker, Notification.Kind.PAYMENT_UPDATE, "Payment refunded", f"Payment for {transaction.assignment.task.title} was refunded.", f"/payments/{transaction.id}")
         return Response(TransactionSerializer(transaction).data)
 
 
@@ -161,6 +188,8 @@ class RazorpayWebhookView(APIView):
         transaction = Transaction.objects.filter(provider_order_id=order_id).first()
         if transaction is None:
             return Response({"received": True, "matched": False})
+        if transaction.status == Transaction.Status.REFUNDED and event in {"payment.captured", "payment.authorized"}:
+            return Response({"received": True, "matched": True, "status": transaction.status})
         if event in {"payment.captured", "payment.authorized"}:
             transaction.status = Transaction.Status.VERIFIED
             transaction.provider_payment_id = payment_id or transaction.provider_payment_id

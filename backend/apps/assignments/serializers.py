@@ -39,6 +39,9 @@ class LevelReviewSerializer(serializers.Serializer):
 
 class AssignmentSerializer(serializers.ModelSerializer):
     task_title = serializers.CharField(source="task.title", read_only=True)
+    task_deadline = serializers.DateTimeField(source="task.deadline", read_only=True)
+    task_start_date = serializers.DateField(source="task.start_date", read_only=True)
+    task_end_date = serializers.DateField(source="task.end_date", read_only=True)
     worker_email = serializers.EmailField(source="worker.email", read_only=True)
     task_status = serializers.CharField(source="task.status", read_only=True)
     levels = AssignmentLevelSerializer(many=True, read_only=True)
@@ -47,11 +50,11 @@ class AssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Assignment
         fields = (
-            "id", "task", "task_title", "task_status", "worker_email", "application", "progress", "submission",
+            "id", "task", "task_title", "task_deadline", "task_start_date", "task_end_date", "task_status", "worker_email", "application", "progress", "submission",
             "client_feedback", "started_at", "submitted_at", "completed_at", "created_at", "updated_at", "levels", "current_level",
         )
         read_only_fields = (
-            "id", "task", "task_title", "task_status", "worker_email", "application", "progress", "submission",
+            "id", "task", "task_title", "task_deadline", "task_start_date", "task_end_date", "task_status", "worker_email", "application", "progress", "submission",
             "client_feedback", "started_at", "submitted_at", "completed_at", "created_at", "updated_at", "levels", "current_level",
         )
 

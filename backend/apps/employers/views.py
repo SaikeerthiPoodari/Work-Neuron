@@ -9,6 +9,7 @@ from .models import EmployerVerification, VerificationDocument
 from .permissions import IsAdmin, IsEmployer
 from .serializers import EmployerVerificationSerializer, VerificationDocumentSerializer, WorkerDirectorySerializer
 from apps.accounts.models import User
+from apps.administration.models import record_audit_event
 from django.db.models import Q
 
 
@@ -98,6 +99,7 @@ class AdminVerificationActionView(APIView):
         verification.reviewed_by = request.user
         verification.reviewed_at = timezone.now()
         verification.save(update_fields=["status", "admin_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        record_audit_event(request, "EMPLOYER_VERIFICATION_ACTION", verification, {"action": action, "status": verification.status})
         return Response(EmployerVerificationSerializer(verification).data)
 
 

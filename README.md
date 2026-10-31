@@ -22,8 +22,10 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 python manage.py migrate
 python manage.py test
-python manage.py runserver
+daphne -b 127.0.0.1 -p 8000 config.asgi:application
 ```
+
+Use Daphne for development when testing WebSocket notifications. `python manage.py runserver` is acceptable for HTTP-only work, but it does not provide the complete ASGI real-time path used by the application.
 
 The intended database is PostgreSQL. For a first foundation check only, if `DB_ENGINE` is not set, Django uses a local SQLite file; configure the PostgreSQL values in `backend/.env` before normal development.
 
@@ -32,6 +34,8 @@ Authentication endpoints:
 - `POST /api/auth/register/`
 - `POST /api/auth/login/`
 - `POST /api/auth/refresh/`
+- `POST /api/auth/password-reset/` with an email address; always returns a generic response
+- `POST /api/auth/password-reset/confirm/` with `uid`, `token`, and a new password
 - `GET /api/auth/me/` with `Authorization: Bearer <access-token>`
 - `GET/PATCH /api/profiles/me/`
 - `GET/POST/PATCH /api/employers/verification/`
@@ -72,6 +76,7 @@ Authentication endpoints:
 - `POST /api/payments/webhook/` for server-side Razorpay webhook signature verification and idempotent transaction state updates
 - `POST /api/payments/create-order/`
 - `POST /api/payments/verify/`
+- `POST /api/payments/<transaction-id>/refund/` for authorized full refunds through the configured Razorpay provider
 - `GET/POST /api/complaints/`
 - Job details submit reports through `POST /api/complaints/` with `category=JOB_REPORT` and a `task` reference; duplicate active reports are rejected.
 - `GET/PATCH /api/complaints/<complaint-id>/`
@@ -109,7 +114,7 @@ Task decomposition uses sentence-based NLP and phrase matching against the task'
 cd frontend
 npm install
 Copy-Item .env.example .env
-npm run dev
+npm run dev -- --host=127.0.0.1
 ```
 
 Set `VITE_API_URL` and `VITE_WS_URL` when the backend is not running locally. The production bundle is generated with `npm run build`.

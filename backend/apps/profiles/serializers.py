@@ -10,8 +10,23 @@ class ClientProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClientProfile
-        fields = ("id", "email", "organization_name", "bio", "phone", "location", "website", "employer_type", "updated_at")
+        fields = ("id", "email", "organization_name", "bio", "phone", "location", "website", "profile_photo", "employer_type", "updated_at")
         read_only_fields = ("id", "email", "updated_at")
+
+    def validate_profile_photo(self, image):
+        if image and image.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("Photo must be 5 MB or smaller.")
+        return image
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.profile_photo:
+            request = self.context.get("request")
+            url = instance.profile_photo.url
+            data["profile_photo"] = request.build_absolute_uri(url) if request else url
+        else:
+            data["profile_photo"] = ""
+        return data
 
 
 class WorkerProfileSerializer(serializers.ModelSerializer):

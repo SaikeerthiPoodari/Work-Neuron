@@ -10,6 +10,7 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
         self.group_name = f"user_{user.id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        await self.send_json({"type": "connected"})
 
     async def disconnect(self, close_code):
         if hasattr(self, "group_name"):

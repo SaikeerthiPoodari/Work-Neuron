@@ -3,6 +3,7 @@ from rest_framework.test import APITestCase
 from django.urls import reverse
 
 from apps.accounts.models import User
+from .models import AuditEvent
 
 
 class AdministrationApiTests(APITestCase):
@@ -35,4 +36,20 @@ class AdministrationApiTests(APITestCase):
         self.assertEqual(response.data["users"]["admins"], 1)
         self.assertIn("by_status", response.data["tasks"])
         self.assertIn("verified_amount", response.data["transactions"])
+
+    def test_admin_user_list_supports_safe_filters(self):
+        inactive = User.objects.create_user(email="inactive@example.com", password="secure-pass-123", role=User.Role.CLIENT, is_active=False)
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(reverse("admin-user-list"), {"role": "CLIENT", "active": "false", "search": "inactive"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in response.data], [inactive.id])
+
+    def test_sensitive_user_changes_are_audited_and_listed(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(reverse("admin-user-detail", kwargs={"pk": self.worker.id}), {"is_active": False}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        event = AuditEvent.objects.get(action="USER_ACCOUNT_UPDATED", target_id=str(self.worker.id))
+        audit = self.client.get(reverse("admin-audit-event-list"))
+        self.assertEqual(audit.status_code, status.HTTP_200_OK)
+        self.assertEqual(audit.data[0]["id"], event.id)
 

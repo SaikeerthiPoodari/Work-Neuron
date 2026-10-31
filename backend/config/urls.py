@@ -4,7 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from apps.accounts.views import LoginView, RegisterView, MeView, PasswordChangeView
+from apps.accounts.views import LoginView, MeView, PasswordChangeView, PasswordResetConfirmView, PasswordResetRequestView, RegisterView
 from config.health import HealthView
 
 
@@ -16,6 +16,8 @@ urlpatterns = [
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
     path("api/auth/me/", MeView.as_view(), name="auth-me"),
     path("api/auth/password/", PasswordChangeView.as_view(), name="auth-password"),
+    path("api/auth/password-reset/", PasswordResetRequestView.as_view(), name="auth-password-reset"),
+    path("api/auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="auth-password-reset-confirm"),
     path("api/profiles/", include("apps.profiles.urls")),
     path("api/employers/", include("apps.employers.urls")),
     path("api/search/", include("apps.search.urls")),
@@ -36,6 +38,7 @@ urlpatterns = [
     path("api/analytics/", include("apps.analytics.urls")),
     path("api/ai/", include("apps.assistant.urls")),
     path("api/messaging/", include("apps.messaging.urls")),
+    path("api/network/", include("apps.network.urls")),
 ]
 
 if settings.DEBUG:

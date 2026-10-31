@@ -15,11 +15,18 @@ from apps.search.models import SearchEvent
 
 def task_summary(task):
     verification = getattr(task.owner, "employer_verification", None)
+    client_profile = getattr(task.owner, "client_profile", None)
+    client_name = (client_profile.organization_name if client_profile and client_profile.organization_name
+                   else " ".join(filter(None, [task.owner.first_name, task.owner.last_name]))
+                   or task.owner.email)
     return {
         "id": task.id,
         "title": task.title,
+        "client_name": client_name,
         "description": task.description,
         "budget": str(task.budget),
+        "created_at": task.created_at,
+        "proposal_count": getattr(task, "proposal_count", task.applications.count()),
         "deadline": task.deadline,
         "location": task.location,
         "location_city": task.location_city,
@@ -54,7 +61,7 @@ class SmartTaskFeedView(APIView):
             return Response({"detail": "Smart Task Feed is available to workers only."}, status=status.HTTP_403_FORBIDDEN)
         limit = min(max(int(request.query_params.get("limit", 20)), 1), 50)
         SearchEvent.objects.create(user=request.user, kind=SearchEvent.Kind.RECOMMENDATION)
-        tasks = Task.objects.filter(status__in=[Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED]).exclude(owner=request.user).prefetch_related("skills")
+        tasks = Task.objects.filter(status__in=[Task.Status.OPEN, Task.Status.APPLICATIONS_RECEIVED]).exclude(owner=request.user).annotate(proposal_count=Count("applications", distinct=True)).select_related("owner", "owner__client_profile", "owner__employer_verification").prefetch_related("skills")
         if request.query_params.get("skill"):
             tasks = tasks.filter(skills__id=request.query_params["skill"])
         if request.query_params.get("location"):

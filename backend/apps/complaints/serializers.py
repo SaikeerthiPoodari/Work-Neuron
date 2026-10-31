@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Complaint
+from apps.administration.models import record_audit_event
 
 
 class ComplaintSerializer(serializers.ModelSerializer):
@@ -57,8 +58,11 @@ class ComplaintAdminSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "report_reason")
 
     def update(self, instance, validated_data):
+        previous_status = instance.status
         instance = super().update(instance, validated_data)
         if instance.status in (Complaint.Status.RESOLVED, Complaint.Status.DISMISSED):
             instance.resolved_by = self.context["request"].user
             instance.save(update_fields=["resolved_by", "updated_at"])
+        if previous_status != instance.status:
+            record_audit_event(self.context["request"], "COMPLAINT_STATUS_UPDATED", instance, {"from": previous_status, "to": instance.status})
         return instance

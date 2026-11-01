@@ -65,10 +65,13 @@ class WorkerDirectorySerializer(serializers.ModelSerializer):
     availability = serializers.SerializerMethodField()
     experience_years = serializers.SerializerMethodField()
     skills = serializers.SerializerMethodField()
+    rating_average = serializers.SerializerMethodField()
+    rating_count = serializers.SerializerMethodField()
+    reputation_score = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "name", "headline", "bio", "location", "availability", "experience_years", "skills")
+        fields = ("id", "name", "headline", "bio", "location", "availability", "experience_years", "skills", "rating_average", "rating_count", "reputation_score")
 
     def get_name(self, obj):
         return " ".join(part for part in (obj.first_name, obj.last_name) if part).strip() or "WorkNeuron worker"
@@ -93,3 +96,12 @@ class WorkerDirectorySerializer(serializers.ModelSerializer):
 
     def get_skills(self, obj):
         return [{"id": item.skill_id, "name": item.skill.name, "proficiency": item.proficiency} for item in obj.worker_skills.all()]
+
+    def get_rating_average(self, obj):
+        return getattr(obj, "directory_rating_average", None)
+
+    def get_rating_count(self, obj):
+        return getattr(obj, "directory_rating_count", 0)
+
+    def get_reputation_score(self, obj):
+        return getattr(obj, "directory_reputation_score", 50)

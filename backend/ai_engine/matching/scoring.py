@@ -26,19 +26,25 @@ DEFAULT_WEIGHTS = {
 }
 
 
+def _normalise_weights(weights):
+    valid = {key: max(0.0, float(value)) for key, value in weights.items()}
+    total = sum(valid.values())
+    if total:
+        return {key: value / total for key, value in valid.items()}
+    default_total = sum(DEFAULT_WEIGHTS.values())
+    return {key: value / default_total for key, value in DEFAULT_WEIGHTS.items()}
+
+
 def matching_weights():
     raw = os.getenv("MATCHING_WEIGHTS_JSON")
     if not raw:
-        return DEFAULT_WEIGHTS.copy()
+        return _normalise_weights(DEFAULT_WEIGHTS)
     try:
         configured = json.loads(raw)
         weights = {key: float(configured.get(key, default)) for key, default in DEFAULT_WEIGHTS.items()}
-        total = sum(value for value in weights.values() if value >= 0)
-        if total <= 0:
-            return DEFAULT_WEIGHTS.copy()
-        return {key: max(value, 0) / total for key, value in weights.items()}
+        return _normalise_weights(weights)
     except (TypeError, ValueError, json.JSONDecodeError):
-        return DEFAULT_WEIGHTS.copy()
+        return _normalise_weights(DEFAULT_WEIGHTS)
 
 
 def _worker_text(worker):
@@ -84,7 +90,7 @@ def _structured_scores(task, worker):
     required_ids = set(task.skills.values_list("id", flat=True))
     worker_skills = list(worker.worker_skills.select_related("skill").all())
     worker_ids = {item.skill_id for item in worker_skills}
-    skill_score = 50.0 if not required_ids else (len(required_ids & worker_ids) / len(required_ids)) * 100
+    skill_score = 50.0 if not required_ids else (sum(min(5, max(0, item.proficiency)) / 5 for item in worker_skills if item.skill_id in required_ids) / len(required_ids)) * 100
     profile = getattr(worker, "worker_profile", None)
     experience_years = getattr(profile, "experience_years", 0) if profile else 0
     experience_text = (getattr(task, "experience_requirement", "") or "").lower()
@@ -99,8 +105,10 @@ def _structured_scores(task, worker):
     worker_location = " ".join([getattr(profile, "location", "") or "", getattr(profile, "current_city", "") or "", getattr(profile, "current_area", "") or "", getattr(profile, "current_state", "") or ""]).strip().lower() if profile else ""
     work_mode = getattr(task, "work_mode", "REMOTE")
     remote_preference = getattr(profile, "remote_preference", "ANY") if profile else "ANY"
-    if work_mode == "REMOTE" or remote_preference == "REMOTE" and work_mode == "REMOTE":
+    if work_mode == "REMOTE":
         location_score = 100.0
+    elif remote_preference == "REMOTE":
+        location_score = 25.0
     elif remote_preference not in ("ANY", work_mode) and work_mode != "HYBRID":
         location_score = 35.0
     elif task_location and worker_location and any(token in worker_location for token in task_location.split() if len(token) > 2):
@@ -121,6 +129,8 @@ def _structured_scores(task, worker):
         availability_score = 90.0
     elif worker_schedule and any(token in worker_schedule for token in required_hours.split() if len(token) > 3):
         availability_score = 100.0
+    elif worker_schedule and getattr(profile, "availability", "") == "FLEXIBLE":
+        availability_score = 85.0
     else:
         availability_score = 40.0
     education = (getattr(profile, "education", "") or "").lower() if profile else ""
@@ -165,7 +175,9 @@ def score_worker_for_task(task, worker, embedder=None):
     worker_names = {name.lower() for name in worker.worker_skills.select_related("skill").values_list("skill__name", flat=True)}
     overlap = sorted(required_names & worker_names)
     display_names = {skill.name.lower(): skill.name for skill in task.skills.all()}
+    missing = sorted(required_names - worker_names)
     reasons = []
+    warnings = []
     if overlap:
         reasons.append(f"relevant skills: {', '.join(display_names[name] for name in overlap)}")
     if getattr(task, "category", "") and components["category"] >= 80:
@@ -180,14 +192,35 @@ def score_worker_for_task(task, worker, embedder=None):
         reasons.append("preferred job type alignment")
     if components["salary"] >= 80 and getattr(getattr(worker, "worker_profile", None), "preferred_salary", None):
         reasons.append("budget preference alignment")
+    if missing:
+        warnings.append(f"missing required skills: {', '.join(display_names[name] for name in missing)}")
+    if components["location"] < 60:
+        warnings.append("location or work-mode preference is not a strong fit")
+    if components["availability"] < 60:
+        warnings.append("availability may not cover the requested schedule")
+    hard_failures = []
+    if required_names and missing:
+        hard_failures.append("one or more required skills are missing")
+    if getattr(task, "work_mode", "REMOTE") == "ONSITE" and getattr(getattr(worker, "worker_profile", None), "remote_preference", "ANY") == "REMOTE":
+        hard_failures.append("worker prefers remote work for an on-site task")
+    eligible = not hard_failures
+    explanation_parts = []
     if reasons:
-        explanation = f"Recommended because it matches {', '.join(reasons)}."
+        explanation_parts.append(f"Recommended because it matches {', '.join(reasons)}.")
     elif components["semantic"] >= 70:
-        explanation = "Strong semantic similarity between the worker profile and task requirements."
+        explanation_parts.append("Strong semantic similarity between the worker profile and task requirements.")
     else:
-        explanation = "Partial match; review the component scores before selecting this worker."
+        explanation_parts.append("Partial match; review the component scores before selecting this worker.")
+    if warnings:
+        explanation_parts.append("Review: " + "; ".join(warnings) + ".")
+    if hard_failures:
+        explanation_parts.append("Not eligible: " + "; ".join(hard_failures) + ".")
     return {
-        "overall_score": round(overall, 2),
+        "overall_score": round(max(0.0, min(100.0, overall)), 2),
+        "eligible": eligible,
+        "hard_failures": hard_failures,
+        "missing_skills": [display_names[name] for name in missing],
+        "matched_skills": [display_names[name] for name in overlap],
         "skill_score": round(components["skill"], 2),
         "category_score": round(components["category"], 2),
         "semantic_score": round(components["semantic"], 2),
@@ -201,7 +234,9 @@ def score_worker_for_task(task, worker, embedder=None):
         "job_type_score": round(components["job_type"], 2),
         "salary_score": round(components["salary"], 2),
         "weights": weights,
-        "explanation": explanation,
+        "explanation": " ".join(explanation_parts),
+        "positive_reasons": reasons,
+        "warnings": warnings,
     }
 
 

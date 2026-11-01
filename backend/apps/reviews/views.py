@@ -22,6 +22,9 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         review = serializer.save()
+        if review.reviewed_user.role == "WORKER":
+            from apps.profiles.services import refresh_professional_portfolio
+            refresh_professional_portfolio(review.reviewed_user)
         from apps.reputation.services import update_reputation
         update_reputation(review.reviewed_user)
         from apps.notifications.models import Notification

@@ -1,4 +1,4 @@
-from django.db.models import Count
+from django.db.models import Avg
 from django.utils import timezone
 
 from .models import ProfessionalPortfolio
@@ -13,16 +13,29 @@ def refresh_professional_portfolio(worker):
     from apps.assignments.models import Assignment
     from apps.reviews.models import Review
 
-    completed = Assignment.objects.filter(worker=worker, task__status="COMPLETED").count()
+    completed_assignments = list(
+        Assignment.objects.filter(worker=worker, task__status="COMPLETED")
+        .select_related("task", "task__owner", "task__owner__client_profile")
+        .prefetch_related("task__skills")
+        .order_by("completed_at", "id")
+    )
+    completed = len(completed_assignments)
     profile = getattr(worker, "worker_profile", None)
     skills = list(worker.worker_skills.select_related("skill").values_list("skill__name", flat=True))
-    rating = Review.objects.filter(reviewed_user=worker).values("reviewed_user").annotate(total=Count("id"))
-    skill_text = ", ".join(skills[:8]) or "a growing set of professional skills"
+    reviews = Review.objects.filter(reviewed_user=worker, reviewer__role="CLIENT", assignment__task__status="COMPLETED")
+    average_rating = reviews.aggregate(value=Avg("rating"))["value"]
+    skill_text = ", ".join(skills[:8]) or "verified professional skills"
     headline = profile.headline if profile and profile.headline else "WorkNeuron professional"
     years = profile.experience_years if profile else 0
     summary = f"{headline} with {years} year{'s' if years != 1 else ''} of experience, focused on {skill_text}."
     if completed:
-        summary += f" Completed {completed} verified WorkNeuron assignment{'s' if completed != 1 else ''}."
+        categories = list(dict.fromkeys(item.task.category for item in completed_assignments if item.task.category))
+        category_text = f" across {', '.join(categories[:3])}" if categories else ""
+        summary += f" Completed {completed} verified WorkNeuron assignment{'s' if completed != 1 else ''}{category_text}."
+    if average_rating is not None:
+        summary += f" Client feedback averages {average_rating:.1f}/5 from {reviews.count()} verified review{'s' if reviews.count() != 1 else ''}."
+    elif not completed:
+        summary += " A verified WorkNeuron work history will appear here as completed assignments are recorded."
     portfolio, _ = ProfessionalPortfolio.objects.get_or_create(worker=worker)
     portfolio.summary = summary
     portfolio.generated_at = timezone.now()

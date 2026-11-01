@@ -4,6 +4,8 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 from apps.applications.models import Application
+from apps.assignments.models import Assignment
+from apps.reviews.models import Review
 from apps.tasks.models import Task
 from django.utils import timezone
 from datetime import timedelta
@@ -77,3 +79,33 @@ class ProfileApiTests(APITestCase):
         self.authenticate(self.client_user)
         allowed = self.client.get(reverse("worker-portfolio", kwargs={"user_id": self.worker.id}))
         self.assertEqual(allowed.status_code, status.HTTP_200_OK)
+
+    def test_client_cannot_view_portfolio_for_worker_who_did_not_apply(self):
+        self.authenticate(self.client_user)
+        response = self.client.get(reverse("worker-portfolio", kwargs={"user_id": self.worker.id}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_summary_uses_completed_assignments_and_qualifying_reviews(self):
+        from apps.profiles.services import refresh_professional_portfolio
+
+        self.worker.first_name = "Asha"
+        self.worker.save(update_fields=["first_name"])
+        from apps.profiles.models import WorkerProfile
+        worker_profile, _ = WorkerProfile.objects.get_or_create(user=self.worker)
+        worker_profile.headline = "Reliable event coordinator"
+        worker_profile.experience_years = 4
+        worker_profile.save(update_fields=["headline", "experience_years", "updated_at"])
+        task = Task.objects.create(owner=self.client_user, title="Verified event", description="Coordinate event", category="Events", budget="100.00", deadline=timezone.now() + timedelta(days=2), status=Task.Status.COMPLETED)
+        application = Application.objects.create(task=task, worker=self.worker, cover_letter="I can help.")
+        assignment = Assignment.objects.create(task=task, worker=self.worker, application=application, started_at=timezone.now() - timedelta(days=3), completed_at=timezone.now())
+        Review.objects.create(assignment=assignment, reviewer=self.client_user, reviewed_user=self.worker, rating=5, review="Excellent")
+
+        portfolio = refresh_professional_portfolio(self.worker)
+        self.assertIn("Completed 1 verified WorkNeuron assignment across Events.", portfolio.summary)
+        self.assertIn("Client feedback averages 5.0/5 from 1 verified review.", portfolio.summary)
+        self.assertEqual(portfolio.source_assignment_count, 1)
+        self.authenticate(self.worker)
+        response = self.client.get(reverse("my-portfolio"))
+        self.assertEqual(response.data["performance"]["completed_assignments"], 1)
+        self.assertEqual(response.data["reviews"][0]["rating"], 5)
+        self.assertTrue(response.data["achievements"])

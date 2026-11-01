@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Avg
+from django.db.models import Avg, Count, Exists, OuterRef, Q
 from django.db.models.functions import Trim
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -10,6 +10,9 @@ from apps.tasks.models import Task
 from apps.skills.models import WorkerSkill
 from ai_engine.matching.scoring import score_task_for_worker
 from apps.search.models import SearchEvent
+from apps.reputation.models import ReputationScore
+from apps.applications.models import Application
+from apps.assignments.models import Assignment
 
 
 def task_summary(task):
@@ -64,7 +67,12 @@ class SmartTaskFeedView(APIView):
         if request.query_params.get("skill"):
             tasks = tasks.filter(skills__id=request.query_params["skill"])
         if request.query_params.get("location"):
-            tasks = tasks.filter(location__icontains=request.query_params["location"])
+            location = request.query_params["location"]
+            tasks = tasks.filter(Q(location__icontains=location) | Q(location_city__icontains=location) | Q(location_area__icontains=location) | Q(location_state__icontains=location))
+        if request.query_params.get("job_type"):
+            tasks = tasks.filter(job_type=request.query_params["job_type"])
+        if request.query_params.get("category"):
+            tasks = tasks.filter(category__icontains=request.query_params["category"])
         if request.query_params.get("min_budget"):
             tasks = tasks.filter(budget__gte=request.query_params["min_budget"])
         if request.query_params.get("max_budget"):
@@ -213,18 +221,24 @@ class WorkerRecommendationsView(APIView):
             return Response({"detail": "Only the task owner can view worker recommendations."}, status=status.HTTP_403_FORBIDDEN)
         workers = User.objects.filter(role=User.Role.WORKER, is_active=True).prefetch_related("worker_skills__skill", "worker_profile")
         from apps.reviews.models import Review
-        from apps.assignments.models import Assignment
         ratings = {row["reviewed_user_id"]: row for row in Review.objects.filter(reviewed_user__in=workers).values("reviewed_user_id").annotate(average=Avg("rating"), count=Count("id"))}
+        reputations = dict(ReputationScore.objects.filter(user__in=workers).values_list("user_id", "score"))
         completed = {row["worker_id"]: row["count"] for row in Assignment.objects.filter(worker__in=workers, task__status=Task.Status.COMPLETED).values("worker_id").annotate(count=Count("id"))}
+        active_application = Application.objects.filter(task=task, worker_id=OuterRef("pk"), status__in=[Application.Status.SUBMITTED, Application.Status.ACCEPTED])
+        active_assignment = Assignment.objects.filter(task=task, worker_id=OuterRef("pk"))
+        workers = workers.annotate(has_application=Exists(active_application), has_assignment=Exists(active_assignment)).filter(has_application=False, has_assignment=False)
         ranked = []
         for worker in workers:
             profile = getattr(worker, "worker_profile", None)
             rating = ratings.get(worker.id)
+            worker._matching_rating_score = float(rating["average"] * 20) if rating else 50.0
+            worker._matching_reputation_score = float(reputations.get(worker.id, 50.0) or 50.0)
             photo = ""
             if profile and profile.profile_photo:
                 photo = request.build_absolute_uri(profile.profile_photo.url)
             elif profile:
                 photo = profile.profile_photo_url
-            ranked.append({"worker": {"id": worker.id, "email": worker.email, "first_name": worker.first_name, "last_name": worker.last_name, "name": " ".join(filter(None, [worker.first_name, worker.last_name])) or worker.email, "role": worker.role, "profile_photo": photo, "headline": profile.headline if profile else "", "location": profile.location if profile else "", "experience_years": profile.experience_years if profile else 0, "education": profile.education if profile else "", "skills": [{"id": skill.skill_id, "name": skill.skill.name, "proficiency": skill.proficiency} for skill in worker.worker_skills.all()], "rating_average": round(float(rating["average"]), 2) if rating else None, "rating_count": rating["count"] if rating else 0, "completed_assignments": completed.get(worker.id, 0)}, "match": score_task_for_worker(task, worker)})
-        ranked.sort(key=lambda item: item["match"]["overall_score"], reverse=True)
+            match = score_task_for_worker(task, worker)
+            ranked.append({"worker": {"id": worker.id, "email": worker.email, "first_name": worker.first_name, "last_name": worker.last_name, "name": " ".join(filter(None, [worker.first_name, worker.last_name])) or worker.email, "role": worker.role, "profile_photo": photo, "headline": profile.headline if profile else "", "bio": profile.bio if profile else "", "location": profile.location if profile else "", "availability": profile.availability if profile else "", "experience_years": profile.experience_years if profile else 0, "education": profile.education if profile else "", "skills": [{"id": skill.skill_id, "name": skill.skill.name, "proficiency": skill.proficiency} for skill in worker.worker_skills.all()], "rating_average": round(float(rating["average"]), 2) if rating else None, "rating_count": rating["count"] if rating else 0, "reputation_score": round(float(reputations.get(worker.id, 50.0) or 50.0), 2), "completed_assignments": completed.get(worker.id, 0)}, "match": match})
+        ranked.sort(key=lambda item: (item["match"].get("eligible", True), item["match"]["overall_score"]), reverse=True)
         return Response(ranked[:50])

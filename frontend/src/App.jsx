@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthLanding, LoginPage, RegisterPage } from "./pages/AuthPages";
@@ -28,6 +28,15 @@ import NetworkFeedPage from "./pages/NetworkFeedPage";
 import NetworkDiscoverPage from "./pages/NetworkDiscoverPage";
 import NetworkMessagesPage from "./pages/NetworkMessagesPage";
 import PublicProfilePage from "./pages/PublicProfilePage";
+import PortfolioPage from "./pages/PortfolioPage";
+import { useAuth } from "./context/AuthContext";
+
+function MyProfileRoute() {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  const prefix = pathname.startsWith("/worker") ? "/worker" : pathname.startsWith("/client") ? "/client" : "";
+  return <Navigate to={`${prefix}/people/${user.id}`} replace />;
+}
 
 const portalPages = <Route element={<AppLayout />}>
   <Route index element={<Navigate to="dashboard" replace />} />
@@ -36,10 +45,12 @@ const portalPages = <Route element={<AppLayout />}>
   <Route path="discover" element={<NetworkDiscoverPage />} />
   <Route path="network-messages" element={<NetworkMessagesPage />} />
   <Route path="people/:id" element={<PublicProfilePage />} />
+  <Route path="portfolio/:workerId" element={<PortfolioPage />} />
   <Route path="tasks" element={<TasksPage />} />
   <Route path="nearby" element={<NearbyJobsPage />} />
   <Route path="tasks/:id" element={<TaskDetailPage />} />
-  <Route path="profile" element={<ProfilePage />} />
+  <Route path="profile" element={<MyProfileRoute />} />
+  <Route path="profile/edit" element={<ProfilePage />} />
   <Route path="settings" element={<SettingsPage />} />
   <Route path="verification" element={<EmployerVerificationPage />} />
   <Route path="applications" element={<ApplicationComparison />} />
@@ -78,7 +89,7 @@ export default function App() {
     {RoleRoutes({ role: "WORKER", prefix: "/worker" })}
     {RoleRoutes({ role: "CLIENT", prefix: "/client" })}
     {RoleRoutes({ role: "ADMIN", prefix: "/admin" })}
-    <Route element={<LegacyPortal />}><Route element={<AppLayout />}><Route path="/tasks" element={<TasksPage />} /><Route path="/nearby" element={<NearbyJobsPage />} /><Route path="/feed" element={<NetworkFeedPage />} /><Route path="/discover" element={<NetworkDiscoverPage />} /><Route path="/people/:id" element={<PublicProfilePage />} /><Route path="/messages" element={<ClientCommunicationPage />} /><Route path="/tasks/:id" element={<TaskDetailPage />} /><Route path="/profile" element={<ProfilePage />} /><Route path="/assignments" element={<AssignmentsPage />} /><Route path="/recommendations" element={<RecommendationsPage />} /><Route path="/skill-graph" element={<SkillGraphPage />} /><Route path="/reviews" element={<ReviewsPage />} /><Route path="/payments" element={<PaymentsPage />} /><Route path="/complaints" element={<ComplaintsPage />} /><Route path="/notifications" element={<NotificationsPage />} /></Route></Route>
+    <Route element={<LegacyPortal />}><Route element={<AppLayout />}><Route path="/tasks" element={<TasksPage />} /><Route path="/nearby" element={<NearbyJobsPage />} /><Route path="/feed" element={<NetworkFeedPage />} /><Route path="/discover" element={<NetworkDiscoverPage />} /><Route path="/people/:id" element={<PublicProfilePage />} /><Route path="/portfolio/:workerId" element={<PortfolioPage />} /><Route path="/messages" element={<ClientCommunicationPage />} /><Route path="/tasks/:id" element={<TaskDetailPage />} /><Route path="/profile" element={<MyProfileRoute />} /><Route path="/profile/edit" element={<ProfilePage />} /><Route path="/assignments" element={<AssignmentsPage />} /><Route path="/recommendations" element={<RecommendationsPage />} /><Route path="/skill-graph" element={<SkillGraphPage />} /><Route path="/reviews" element={<ReviewsPage />} /><Route path="/payments" element={<PaymentsPage />} /><Route path="/complaints" element={<ComplaintsPage />} /><Route path="/notifications" element={<NotificationsPage />} /></Route></Route>
     <Route path="*" element={<Navigate to="/auth" replace />} />
   </Routes>;
 }

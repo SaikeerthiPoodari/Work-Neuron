@@ -1,10 +1,15 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from django.urls import reverse
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
+from apps.applications.models import Application
 from apps.profiles.models import WorkerProfile
+from apps.tasks.models import Task
 
 from .models import Connection, DirectMessage, Follow, Post
 
@@ -73,3 +78,31 @@ class NetworkApiTests(APITestCase):
         self.assertEqual(response.data["profile"]["bio"], "I build useful tools for local businesses.")
         self.assertEqual(len(response.data["posts"]), 1)
         self.assertEqual(len(response.data["followers"]), 1)
+
+    def test_profile_overview_returns_only_the_target_workers_portfolio_when_authorized(self):
+        from apps.profiles.services import refresh_professional_portfolio
+
+        self.worker.last_name = "Worker"
+        self.worker.save(update_fields=["last_name"])
+        self.other.first_name = "Mina"
+        self.other.save(update_fields=["first_name"])
+        WorkerProfile.objects.create(user=self.worker, headline="Asha's profile")
+        WorkerProfile.objects.create(user=self.other, headline="Other worker profile")
+
+        self.client.force_authenticate(self.worker)
+        own = self.client.get(reverse("network-profile-overview", args=[self.worker.id]))
+        self.assertEqual(own.data["professional_summary"]["worker"], self.worker.id)
+        self.assertEqual(own.data["professional_summary"]["worker_name"], "Asha Worker")
+        self.assertIn("Asha's profile", own.data["professional_summary"]["summary"])
+
+        self.client.force_authenticate(self.client_user)
+        denied = self.client.get(reverse("network-profile-overview", args=[self.other.id]))
+        self.assertIsNone(denied.data["professional_summary"])
+
+        task = Task.objects.create(owner=self.client_user, title="Portfolio review", description="Review a portfolio", budget="100.00", deadline=timezone.now() + timedelta(days=2))
+        Application.objects.create(task=task, worker=self.other, cover_letter="I can help.")
+        refresh_professional_portfolio(self.other)
+        allowed = self.client.get(reverse("network-profile-overview", args=[self.other.id]))
+        self.assertEqual(allowed.data["professional_summary"]["worker"], self.other.id)
+        self.assertEqual(allowed.data["professional_summary"]["worker_name"], "Mina")
+        self.assertIn("Other worker profile", allowed.data["professional_summary"]["summary"])

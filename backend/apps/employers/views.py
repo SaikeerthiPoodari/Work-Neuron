@@ -10,7 +10,8 @@ from .permissions import IsAdmin, IsEmployer
 from .serializers import EmployerVerificationSerializer, VerificationDocumentSerializer, WorkerDirectorySerializer
 from apps.accounts.models import User
 from apps.administration.models import record_audit_event
-from django.db.models import Q
+from django.db.models import Avg, Count, Q
+from apps.reputation.models import ReputationScore
 
 
 class EmployerVerificationView(APIView):
@@ -59,7 +60,7 @@ class WorkerDirectoryView(generics.ListAPIView):
     serializer_class = WorkerDirectorySerializer
 
     def get_queryset(self):
-        queryset = User.objects.filter(role=User.Role.WORKER, is_active=True).select_related("worker_profile").prefetch_related("worker_skills__skill")
+        queryset = User.objects.filter(role=User.Role.WORKER, is_active=True).select_related("worker_profile").prefetch_related("worker_skills__skill").annotate(directory_rating_average=Avg("received_reviews__rating"), directory_rating_count=Count("received_reviews", distinct=True))
         params = self.request.query_params
         search = params.get("search")
         if search:
@@ -70,7 +71,15 @@ class WorkerDirectoryView(generics.ListAPIView):
             queryset = queryset.filter(worker_profile__availability=params["availability"])
         if params.get("min_experience"):
             queryset = queryset.filter(worker_profile__experience_years__gte=params["min_experience"])
-        return queryset.distinct().order_by("first_name", "last_name")[:100]
+        if params.get("skill"):
+            queryset = queryset.filter(worker_skills__skill_id=params["skill"])
+        if params.get("min_rating"):
+            queryset = queryset.filter(directory_rating_average__gte=params["min_rating"])
+        reputation_scores = dict(ReputationScore.objects.filter(user_id__in=queryset.values("id")).values_list("user_id", "score"))
+        workers = list(queryset.distinct().order_by("-directory_rating_average", "-worker_profile__experience_years", "first_name", "last_name")[:100])
+        for worker in workers:
+            worker.directory_reputation_score = float(reputation_scores.get(worker.id, 50) or 50)
+        return workers
 
 
 class AdminVerificationListView(generics.ListAPIView):

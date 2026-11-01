@@ -79,6 +79,15 @@ class PostCommentView(generics.ListCreateAPIView):
         if post.author_id != self.request.user.id: create_notification(post.author, Notification.Kind.MESSAGE_RECEIVED, "New comment", f"{self.request.user.email} commented on your post.", "/feed")
 
 
+class PostManagementView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PostSerializer
+    parser_classes = [MultiPartParser, FormParser, *generics.RetrieveUpdateDestroyAPIView.parser_classes]
+
+    def get_queryset(self):
+        return Post.objects.filter(author=self.request.user).select_related("author").prefetch_related("likes", "saves", "comments__author")
+
+
 class DiscoverView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = NetworkUserSerializer
@@ -176,7 +185,8 @@ class ProfileOverviewView(APIView):
         profile_data = None
         if isinstance(profile, WorkerProfile):
             raw = WorkerProfileSerializer(profile, context={"request": request}).data
-            profile_data = {key: raw.get(key) for key in ("headline", "bio", "experience_years", "location", "portfolio_url", "profile_photo_url", "profile_photo", "cover_image", "education", "interests", "profile_completion")}
+            profile_data = {key: raw.get(key) for key in ("headline", "bio", "experience_years", "location", "portfolio_url", "profile_photo_url", "profile_photo", "cover_image", "education", "interests", "languages", "preferred_job_type", "preferred_salary", "preferred_working_hours", "preferred_job_location", "remote_preference", "current_city", "current_area", "current_state", "availability", "profile_completion")}
+            profile_data["user_id"] = user.id
         if isinstance(profile, ClientProfile):
             raw = ClientProfileSerializer(profile, context={"request": request}).data
             profile_data = {key: raw.get(key) for key in ("organization_name", "bio", "location", "website", "profile_photo", "cover_image", "employer_type", "profile_completion")}
@@ -186,12 +196,23 @@ class ProfileOverviewView(APIView):
         following = User.objects.filter(followers__follower=user, is_active=True).select_related("worker_profile", "client_profile")
         verification = EmployerVerification.objects.filter(employer=user).first()
         posts = Post.objects.filter(author=user).select_related("author").prefetch_related("likes", "saves", "comments__author")[:50]
+        is_following = Follow.objects.filter(follower=request.user, following=user).exists() if request.user.id != user.id else False
+        relationship = Connection.objects.filter(Q(requester=request.user, recipient=user) | Q(requester=user, recipient=request.user)).first() if request.user.id != user.id else None
+        portfolio_access = user.id == request.user.id or request.user.role == User.Role.ADMIN
+        if request.user.role == User.Role.CLIENT and user.role == User.Role.WORKER:
+            from apps.applications.models import Application
+            portfolio_access = Application.objects.filter(worker=user, task__owner=request.user).exists()
         skills = []
         experience = []
+        professional_summary = None
         client_stats = None
         client_assignments = []
         client_reviews = []
         if isinstance(profile, WorkerProfile):
+            if portfolio_access:
+                from apps.profiles.services import refresh_professional_portfolio
+                from apps.profiles.serializers import ProfessionalPortfolioSerializer
+                professional_summary = ProfessionalPortfolioSerializer(refresh_professional_portfolio(user), context={"request": request}).data
             skills = [{"name": item.skill.name, "category": item.skill.category, "proficiency": item.proficiency, "years_experience": item.years_experience} for item in user.worker_skills.select_related("skill").all()]
             from apps.assignments.models import Assignment
             experience = [{"title": item.task.title, "category": item.task.category, "client_name": " ".join(filter(None, [item.task.owner.first_name, item.task.owner.last_name])) or item.task.owner.email, "started_at": item.started_at, "completed_at": item.completed_at, "skills": [skill.name for skill in item.task.skills.all()]} for item in Assignment.objects.filter(worker=user, task__status="COMPLETED").select_related("task__owner").prefetch_related("task__skills")]
@@ -199,7 +220,14 @@ class ProfileOverviewView(APIView):
             from apps.assignments.models import Assignment
             from apps.reviews.models import Review
             client_tasks = user.tasks.all()
-            client_stats = {"assignments_posted": client_tasks.count(), "completed_assignments": client_tasks.filter(status="COMPLETED").count(), "average_rating": Review.objects.filter(reviewed_user=user).aggregate(value=Avg("rating"))["value"]}
+            client_stats = {
+                "assignments_posted": client_tasks.count(),
+                "active_jobs": client_tasks.filter(status__in=["OPEN", "APPLICATIONS_RECEIVED", "ASSIGNED", "IN_PROGRESS", "SUBMITTED"]).count(),
+                "completed_assignments": client_tasks.filter(status="COMPLETED").count(),
+                "total_applications": sum(item.applications.count() for item in client_tasks),
+                "selected_workers": Assignment.objects.filter(task__owner=user).values("worker_id").distinct().count(),
+                "average_rating": Review.objects.filter(reviewed_user=user).aggregate(value=Avg("rating"))["value"],
+            }
             client_assignments = [{"id": item.id, "title": item.title, "description": item.description, "category": item.category, "status": item.status, "budget": item.budget, "deadline": item.deadline, "created_at": item.created_at} for item in client_tasks.filter(status__in=["OPEN", "APPLICATIONS_RECEIVED", "ASSIGNED", "IN_PROGRESS", "SUBMITTED", "COMPLETED"])[:30]]
             client_reviews = [{"rating": item.rating, "review": item.review, "created_at": item.created_at, "reviewer_name": " ".join(filter(None, [item.reviewer.first_name, item.reviewer.last_name])) or "WorkNeuron member"} for item in Review.objects.filter(reviewed_user=user).select_related("reviewer")[:20]]
         return Response({
@@ -211,8 +239,13 @@ class ProfileOverviewView(APIView):
             "posts": PostSerializer(posts, many=True, context={"request": request}).data,
             "skills": skills,
             "experience": experience,
+            "professional_summary": professional_summary,
             "client_stats": client_stats,
             "client_assignments": client_assignments,
             "client_reviews": client_reviews,
             "verification": EmployerVerificationSerializer(verification).data if verification else None,
+            "posts_count": Post.objects.filter(author=user).count(),
+            "is_following": is_following,
+            "connection": {"id": relationship.id, "status": relationship.status, "requester_id": relationship.requester_id, "recipient_id": relationship.recipient_id} if relationship else None,
+            "portfolio_access": portfolio_access if user.role == User.Role.WORKER else False,
         })

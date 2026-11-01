@@ -120,10 +120,12 @@ class ProfessionalPortfolioSerializer(serializers.ModelSerializer):
     experience = serializers.SerializerMethodField()
     skills = serializers.SerializerMethodField()
     performance = serializers.SerializerMethodField()
+    reviews = serializers.SerializerMethodField()
+    achievements = serializers.SerializerMethodField()
 
     class Meta:
         model = ProfessionalPortfolio
-        fields = ("worker", "worker_name", "profile", "summary", "experience", "skills", "performance", "generated_at", "source_assignment_count", "updated_at")
+        fields = ("worker", "worker_name", "profile", "summary", "experience", "skills", "performance", "reviews", "achievements", "generated_at", "source_assignment_count", "updated_at")
         read_only_fields = fields
 
     def get_worker_name(self, obj):
@@ -141,7 +143,14 @@ class ProfessionalPortfolioSerializer(serializers.ModelSerializer):
 
     def get_experience(self, obj):
         from apps.assignments.models import Assignment
-        return [{"assignment_id": item.id, "title": item.task.title, "client_name": " ".join(filter(None, [item.task.owner.first_name, item.task.owner.last_name])) or item.task.owner.email, "started_at": item.started_at, "completed_at": item.completed_at, "duration_days": (item.completed_at.date() - item.started_at.date()).days if item.started_at and item.completed_at else None, "description": item.task.description, "category": item.task.category, "skills": [skill.name for skill in item.task.skills.all()]} for item in Assignment.objects.filter(worker=obj.worker, task__status="COMPLETED").select_related("task__owner").prefetch_related("task__skills")]
+        items = Assignment.objects.filter(worker=obj.worker, task__status="COMPLETED").select_related("task__owner", "task__owner__client_profile").prefetch_related("task__skills").order_by("-completed_at", "-id")
+        result = []
+        for item in items:
+            owner = item.task.owner
+            client_profile = getattr(owner, "client_profile", None)
+            client_name = (client_profile.organization_name if client_profile and client_profile.organization_name else " ".join(filter(None, [owner.first_name, owner.last_name])) or "WorkNeuron client")
+            result.append({"assignment_id": item.id, "title": item.task.title, "client_name": client_name, "started_at": item.started_at, "completed_at": item.completed_at, "duration_days": (item.completed_at.date() - item.started_at.date()).days if item.started_at and item.completed_at else None, "description": item.task.description, "category": item.task.category, "skills": [skill.name for skill in item.task.skills.all()]})
+        return result
 
     def get_skills(self, obj):
         return [{"name": item.skill.name, "category": item.skill.category, "proficiency": item.proficiency, "years_experience": item.years_experience} for item in obj.worker.worker_skills.select_related("skill").all()]
@@ -149,6 +158,19 @@ class ProfessionalPortfolioSerializer(serializers.ModelSerializer):
     def get_performance(self, obj):
         from django.db.models import Avg, Count
         from apps.reviews.models import Review
-        reviews = Review.objects.filter(reviewed_user=obj.worker)
+        reviews = Review.objects.filter(reviewed_user=obj.worker, reviewer__role="CLIENT", assignment__task__status="COMPLETED")
         result = reviews.aggregate(average=Avg("rating"), count=Count("id"))
         return {"completed_assignments": obj.source_assignment_count, "average_rating": round(float(result["average"]), 2) if result["average"] is not None else None, "review_count": result["count"] or 0}
+
+    def get_reviews(self, obj):
+        from apps.reviews.models import Review
+        return [{"rating": item.rating, "review": item.review, "client_name": (getattr(item.reviewer, "client_profile", None).organization_name if getattr(item.reviewer, "client_profile", None) and getattr(item.reviewer, "client_profile", None).organization_name else " ".join(filter(None, [item.reviewer.first_name, item.reviewer.last_name])) or "WorkNeuron client"), "created_at": item.created_at} for item in Review.objects.filter(reviewed_user=obj.worker, reviewer__role="CLIENT", assignment__task__status="COMPLETED").select_related("reviewer", "reviewer__client_profile").order_by("-created_at", "-id")]
+
+    def get_achievements(self, obj):
+        achievements = []
+        if obj.source_assignment_count:
+            achievements.append({"key": "completed_assignments", "label": f"{obj.source_assignment_count} verified assignment{'s' if obj.source_assignment_count != 1 else ''} completed", "verified": True})
+        performance = self.get_performance(obj)
+        if performance["average_rating"] is not None:
+            achievements.append({"key": "client_rating", "label": f"{performance['average_rating']}/5 verified client rating", "verified": True})
+        return achievements

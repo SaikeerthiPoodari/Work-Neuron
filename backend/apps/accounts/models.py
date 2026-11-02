@@ -23,6 +23,11 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    LANGUAGE_CHOICES = (
+        ("en", "English"), ("te", "Telugu"), ("hi", "Hindi"), ("ta", "Tamil"),
+        ("kn", "Kannada"), ("ml", "Malayalam"), ("bn", "Bengali"), ("mr", "Marathi"),
+        ("ur", "Urdu"), ("gu", "Gujarati"), ("pa", "Punjabi"),
+    )
     class Role(models.TextChoices):
         CLIENT = "CLIENT", "Client"
         WORKER = "WORKER", "Worker"
@@ -32,6 +37,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=80, blank=True)
     last_name = models.CharField(max_length=80, blank=True)
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.WORKER)
+    preferred_language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default="en")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)

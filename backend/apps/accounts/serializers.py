@@ -9,7 +9,7 @@ from apps.profiles.models import ClientProfile, WorkerProfile
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("id", "email", "first_name", "last_name", "role", "date_joined")
+        fields = ("id", "email", "first_name", "last_name", "role", "preferred_language", "date_joined")
         read_only_fields = ("id", "date_joined", "role", "email")
 
 

@@ -34,6 +34,8 @@ export async function api(path, options = {}) {
   const request = async (token) => {
     const headers = { ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(options.headers || {}) };
     if (token) headers.Authorization = `Bearer ${token}`;
+    const interfaceLanguage = localStorage.getItem("workneuron_interface_language") || "en";
+    headers["Accept-Language"] = interfaceLanguage;
     try {
       return await fetch(`${API_BASE}${path}`, { ...options, headers, body: options.body && !(options.body instanceof FormData) ? JSON.stringify(options.body) : options.body });
     } catch (error) {

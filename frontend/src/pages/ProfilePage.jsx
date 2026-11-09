@@ -29,6 +29,15 @@ export default function ProfilePage() {
   useEffect(() => { if (!photoFile) { setPhotoPreview(""); return undefined; } const url = URL.createObjectURL(photoFile); setPhotoPreview(url); return () => URL.revokeObjectURL(url); }, [photoFile]);
   if (!profile) return <div className="py-10 text-slate-500" role="status">Loading profile…</div>;
   if (user.role === "CLIENT") return <div className="mx-auto w-full max-w-7xl space-y-6"><ProfileShowcaseHeader user={user} profile={profile} /><div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="min-w-0 space-y-6"><ClientProfilePhoto profile={profile} onSaved={setProfile} /><CoverImageEditor profile={profile} onSaved={setProfile} /><ClientProfileEditor profile={profile} onSaved={setProfile} /><PayoutDetails profile={profile} onSaved={setProfile} client /></div><aside className="min-w-0"><ProfileNetworkPanel user={user} /></aside></div></div>;
+  const uploadPhoto = async () => {
+    if (!photoFile) return profile;
+    const body = new FormData();
+    body.append("profile_photo", photoFile);
+    const saved = await patch("/profiles/me/", body);
+    setProfile(saved);
+    setPhotoFile(null);
+    return saved;
+  };
   const save = async (event) => {
     event.preventDefault(); setError("");
     try {
@@ -37,10 +46,7 @@ export default function ProfilePage() {
       // as if they were new files during a normal JSON profile update.
       let saved = profile;
       if (photoFile) {
-        const upload = new FormData();
-        upload.append("profile_photo", photoFile);
-        saved = await patch("/profiles/me/", upload);
-        setPhotoFile(null);
+        saved = await uploadPhoto();
       }
       const { email, id, updated_at, profile_photo, profile_photo_url, cover_image, ...payload } = profile;
       saved = await patch("/profiles/me/", payload);

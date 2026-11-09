@@ -16,6 +16,7 @@ DEBUG = False
 SECRET_KEY = _required("DJANGO_SECRET_KEY")
 STATIC_URL = "/static/"
 MEDIA_URL = os.getenv("MEDIA_URL", "/media/")
+SERVE_PUBLIC_MEDIA = os.getenv("SERVE_PUBLIC_MEDIA", "False").lower() in {"1", "true", "yes"}
 ALLOWED_HOSTS = [host.strip() for host in _required("DJANGO_ALLOWED_HOSTS").split(",") if host.strip()]
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _required("CORS_ALLOWED_ORIGINS").split(",") if origin.strip()]
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _required("CSRF_TRUSTED_ORIGINS").split(",") if origin.strip()]

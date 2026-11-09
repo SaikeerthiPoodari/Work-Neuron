@@ -148,7 +148,7 @@ const workerUiMore = {
 };
 for (const [locale, values] of Object.entries(workerUiMore)) Object.assign(messages[locale], values);
 
-Object.assign(messages.en, { feed: "Professional feed", discover: "Discover people", network: "Network", workMessages: "Work messages", createPost: "Share an update", postPlaceholder: "Share a skill, project, achievement, or opportunity...", publish: "Publish", like: "Like", unlike: "Unlike", save: "Save", unsave: "Unsave", share: "Share", comment: "Comment", connect: "Connect", following: "Following", follow: "Follow", connectionPending: "Pending", noPosts: "Your professional feed is ready for its first post.", noPeople: "No people matched your search." });
+Object.assign(messages.en, { feed: "Professional feed", discover: "Discover people", network: "Network", personalMessages: "Personal messages", professionalMessages: "Professional messages", workMessages: "Professional messages", createPost: "Share an update", postPlaceholder: "Share a skill, project, achievement, or opportunity...", publish: "Publish", like: "Like", unlike: "Unlike", save: "Save", unsave: "Unsave", share: "Share", comment: "Comment", connect: "Connect", following: "Following", follow: "Follow", connectionPending: "Pending", noPosts: "Your professional feed is ready for its first post.", noPeople: "No people matched your search." });
 
 // Shared shell vocabulary for the supported Indian locales. Feature-specific
 // catalogs can be expanded without changing components: missing keys safely

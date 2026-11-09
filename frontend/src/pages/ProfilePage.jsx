@@ -45,7 +45,7 @@ export default function ProfilePage() {
     try { await post("/skills/mine/", { skill: Number(skillId), proficiency: 3, years_experience: 0 }); setSkillId(""); await load(); }
     catch (err) { setError(err.message); }
   };
-  const fields = Object.entries(profile).filter(([key]) => !["id", "email", "updated_at", "profile_photo", "profile_photo_url"].includes(key) && typeof profile[key] !== "object");
+  const fields = Object.entries(profile).filter(([key]) => !["id", "email", "updated_at", "profile_photo", "profile_photo_url", "cover_image"].includes(key) && typeof profile[key] !== "object");
   return <div className="mx-auto w-full max-w-7xl space-y-6">
     <ProfileShowcaseHeader user={user} profile={profile} />
     <CoverImageEditor profile={profile} onSaved={setProfile} />

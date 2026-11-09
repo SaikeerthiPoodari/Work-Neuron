@@ -32,7 +32,10 @@ export default function ProfilePage() {
   const save = async (event) => {
     event.preventDefault(); setError("");
     try {
-      const { email, id, updated_at, profile_photo, profile_photo_url, ...payload } = profile;
+      // File fields are uploaded separately as multipart FormData. The API
+      // returns their URLs in profile responses, so never send those URLs back
+      // as if they were new files during a normal JSON profile update.
+      const { email, id, updated_at, profile_photo, profile_photo_url, cover_image, ...payload } = profile;
       let saved = await patch("/profiles/me/", payload);
       if (photoFile) { const upload = new FormData(); upload.append("profile_photo", photoFile); saved = await patch("/profiles/me/", upload); setPhotoFile(null); }
       setProfile(saved);
@@ -75,7 +78,9 @@ function ClientProfileEditor({ profile, onSaved }) {
     setError("");
     setSaved(false);
     try {
-      const { id, email, updated_at, profile_photo, ...payload } = form;
+      // Keep the existing file URL out of the JSON update; cover uploads use
+      // the dedicated multipart upload control below.
+      const { id, email, updated_at, profile_photo, cover_image, ...payload } = form;
       const updated = await patch("/profiles/me/", payload);
       setForm(updated);
       onSaved(updated);

@@ -19,8 +19,9 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-development-key-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in {"1", "true", "yes"}
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
-if not DEBUG and SECRET_KEY == "unsafe-development-key-change-me":
-    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=False.")
+# Production performs this validation in ``settings_production.py``.  Keeping
+# the base module importable with safe local defaults makes it useful for
+# development and for Django tooling.
 
 INSTALLED_APPS = [
     "django.contrib.admin",

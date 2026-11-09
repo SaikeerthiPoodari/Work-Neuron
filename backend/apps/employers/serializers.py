@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from apps.profiles.models import ClientProfile
 from apps.accounts.models import User
+from apps.profiles.photo import profile_photo_url
 
 from .models import EmployerVerification, VerificationDocument
 
@@ -58,6 +59,7 @@ class VerificationDocumentSerializer(serializers.ModelSerializer):
 
 
 class WorkerDirectorySerializer(serializers.ModelSerializer):
+    profile_photo = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     headline = serializers.SerializerMethodField()
     bio = serializers.SerializerMethodField()
@@ -71,10 +73,13 @@ class WorkerDirectorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "name", "headline", "bio", "location", "availability", "experience_years", "skills", "rating_average", "rating_count", "reputation_score")
+        fields = ("id", "name", "headline", "bio", "location", "availability", "experience_years", "profile_photo", "skills", "rating_average", "rating_count", "reputation_score")
 
     def get_name(self, obj):
         return " ".join(part for part in (obj.first_name, obj.last_name) if part).strip() or "WorkNeuron worker"
+
+    def get_profile_photo(self, obj):
+        return profile_photo_url(obj, self.context.get("request"))
 
     def get_profile(self, obj):
         return getattr(obj, "worker_profile", None)

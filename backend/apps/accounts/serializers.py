@@ -4,13 +4,19 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User
 from apps.profiles.models import ClientProfile, WorkerProfile
+from apps.profiles.photo import profile_photo_url
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_photo = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ("id", "email", "first_name", "last_name", "role", "preferred_language", "date_joined")
+        fields = ("id", "email", "first_name", "last_name", "role", "preferred_language", "profile_photo", "date_joined")
         read_only_fields = ("id", "date_joined", "role", "email")
+
+    def get_profile_photo(self, obj):
+        return profile_photo_url(obj, self.context.get("request"))
 
 
 class PasswordChangeSerializer(serializers.Serializer):

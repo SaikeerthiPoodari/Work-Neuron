@@ -2,6 +2,7 @@ from django.db.models import Q
 from rest_framework import serializers
 
 from apps.accounts.models import User
+from apps.profiles.photo import profile_photo_url
 
 from .models import Connection, DirectMessage, Follow, Post, PostComment
 
@@ -35,12 +36,7 @@ class NetworkUserSerializer(serializers.ModelSerializer):
         return getattr(profile, "location", "") or getattr(profile, "current_city", "")
 
     def get_profile_photo(self, obj):
-        profile = getattr(obj, "worker_profile", None) or getattr(obj, "client_profile", None)
-        photo = getattr(profile, "profile_photo", None) if profile else None
-        if photo:
-            request = self.context.get("request")
-            return request.build_absolute_uri(photo.url) if request else photo.url
-        return getattr(profile, "profile_photo_url", "") if profile else ""
+        return profile_photo_url(obj, self.context.get("request"))
 
     def get_connections_count(self, obj):
         return Connection.objects.filter(status=Connection.Status.ACCEPTED).filter(requester=obj).count() + Connection.objects.filter(status=Connection.Status.ACCEPTED, recipient=obj).count()

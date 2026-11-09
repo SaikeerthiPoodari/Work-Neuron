@@ -3,6 +3,7 @@ from rest_framework import serializers
 from apps.assignments.models import Assignment
 
 from .models import Review
+from apps.profiles.photo import profile_photo_url
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -12,11 +13,13 @@ class ReviewSerializer(serializers.ModelSerializer):
     assignment_title = serializers.CharField(source="assignment.task.title", read_only=True)
     task_id = serializers.IntegerField(source="assignment.task_id", read_only=True)
     client_name = serializers.SerializerMethodField()
+    reviewer_profile_photo = serializers.SerializerMethodField()
+    reviewed_user_profile_photo = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
         fields = (
-            "id", "assignment", "assignment_title", "task_id", "reviewer_email", "reviewer_name", "client_name", "reviewed_user_email", "rating", "review", "created_at",
+            "id", "assignment", "assignment_title", "task_id", "reviewer_email", "reviewer_name", "reviewer_profile_photo", "client_name", "reviewed_user_email", "reviewed_user_profile_photo", "rating", "review", "created_at",
         )
         read_only_fields = ("id", "reviewer_email", "reviewed_user_email", "created_at")
 
@@ -26,6 +29,12 @@ class ReviewSerializer(serializers.ModelSerializer):
     def get_client_name(self, obj):
         user = obj.assignment.task.owner
         return " ".join(filter(None, [user.first_name, user.last_name])) or user.email
+
+    def get_reviewer_profile_photo(self, obj):
+        return profile_photo_url(obj.reviewer, self.context.get("request"))
+
+    def get_reviewed_user_profile_photo(self, obj):
+        return profile_photo_url(obj.reviewed_user, self.context.get("request"))
 
     def validate_assignment(self, assignment):
         request = self.context["request"]

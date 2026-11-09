@@ -2,18 +2,27 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Interview, Message
+from apps.profiles.photo import profile_photo_url
 
 
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.SerializerMethodField()
+    sender_profile_photo = serializers.SerializerMethodField()
+    recipient_profile_photo = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ("id", "task", "application", "sender", "sender_name", "recipient", "body", "created_at", "read_at")
+        fields = ("id", "task", "application", "sender", "sender_name", "sender_profile_photo", "recipient", "recipient_profile_photo", "body", "created_at", "read_at")
         read_only_fields = ("id", "sender", "sender_name", "created_at", "read_at")
 
     def get_sender_name(self, obj):
         return " ".join(part for part in (obj.sender.first_name, obj.sender.last_name) if part).strip() or obj.sender.email
+
+    def get_sender_profile_photo(self, obj):
+        return profile_photo_url(obj.sender, self.context.get("request"))
+
+    def get_recipient_profile_photo(self, obj):
+        return profile_photo_url(obj.recipient, self.context.get("request"))
 
     def validate(self, attrs):
         request = self.context["request"]

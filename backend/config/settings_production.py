@@ -53,3 +53,26 @@ MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
 if not MEDIA_ROOT.is_absolute():
     MEDIA_ROOT = BASE_DIR / MEDIA_ROOT
 
+# Render/PythonAnywhere local disks are not durable across all restarts or
+# redeploys. Set STORAGE_BACKEND=s3 for durable profile photos and uploads.
+if os.getenv("STORAGE_BACKEND", "local").strip().lower() == "s3":
+    INSTALLED_APPS = [*INSTALLED_APPS, "storages"]
+    _storage_required = ("S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY")
+    for _name in _storage_required:
+        _required(_name)
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": os.environ["S3_BUCKET"],
+                "access_key": os.environ["S3_ACCESS_KEY_ID"],
+                "secret_key": os.environ["S3_SECRET_ACCESS_KEY"],
+                "endpoint_url": os.getenv("S3_ENDPOINT_URL", "") or None,
+                "region_name": os.getenv("S3_REGION", "auto"),
+                "querystring_auth": True,
+                "file_overwrite": False,
+            },
+        },
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+

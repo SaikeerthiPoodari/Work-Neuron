@@ -35,9 +35,15 @@ export default function ProfilePage() {
       // File fields are uploaded separately as multipart FormData. The API
       // returns their URLs in profile responses, so never send those URLs back
       // as if they were new files during a normal JSON profile update.
+      let saved = profile;
+      if (photoFile) {
+        const upload = new FormData();
+        upload.append("profile_photo", photoFile);
+        saved = await patch("/profiles/me/", upload);
+        setPhotoFile(null);
+      }
       const { email, id, updated_at, profile_photo, profile_photo_url, cover_image, ...payload } = profile;
-      let saved = await patch("/profiles/me/", payload);
-      if (photoFile) { const upload = new FormData(); upload.append("profile_photo", photoFile); saved = await patch("/profiles/me/", upload); setPhotoFile(null); }
+      saved = await patch("/profiles/me/", payload);
       setProfile(saved);
     } catch (err) { setError(err.message); }
   };
